@@ -1,42 +1,10 @@
 'use client'
 
-import { useState, FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
+import { useActionState } from 'react'
+import { loginAction } from './actions'
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error ?? 'Erreur de connexion')
-        return
-      }
-      // Hard redirect so the browser sends the cookie on the new request
-      if (data.role === 'amb' && data.ambassadorId) {
-        window.location.href = `/ambassadeurs/${data.ambassadorId}`
-      } else {
-        window.location.href = '/'
-      }
-    } catch {
-      setError('Erreur réseau')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [error, formAction, pending] = useActionState(loginAction, null)
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -57,17 +25,15 @@ export default function LoginPage() {
         <h1 className="text-xl font-bold text-gray-900 mb-1">Connexion</h1>
         <p className="text-sm text-gray-500 mb-6">Accédez à votre espace</p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form action={formAction} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
             <input
               type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
+              name="email"
               required
               autoComplete="email"
               className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:border-transparent"
-              style={{ '--tw-ring-color': '#C0392B' } as React.CSSProperties}
               placeholder="votre@email.com"
             />
           </div>
@@ -76,8 +42,7 @@ export default function LoginPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Mot de passe</label>
             <input
               type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
+              name="password"
               required
               autoComplete="current-password"
               className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:border-transparent"
@@ -91,11 +56,11 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={pending}
             className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-60 cursor-pointer"
             style={{ backgroundColor: '#C0392B' }}
           >
-            {loading ? 'Connexion...' : 'Se connecter'}
+            {pending ? 'Connexion...' : 'Se connecter'}
           </button>
         </form>
       </div>
