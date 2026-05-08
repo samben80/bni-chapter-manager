@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
               ${memberId}, ${type},
               (${m.intro_date}::date + ${interval}::interval)::date,
               'scheduled'
-            WHERE (${m.intro_date}::date + ${interval}::interval)::date >= '2026-01-01'
+            WHERE (${m.intro_date}::date + ${interval}::interval)::date >= CURRENT_DATE
             ON CONFLICT (member_id, type) DO NOTHING
           `
         }
