@@ -12,20 +12,28 @@ interface InterviewRow extends Interview {
   member_name: string
   company: string
   intro_date: string
+  chapter_id: number
+  chapter_name: string
 }
+
+interface Chapter { id: number; name: string }
 
 export default function EntretiensPage() {
   const [interviews, setInterviews] = useState<InterviewRow[]>([])
+  const [chapters, setChapters] = useState<Chapter[]>([])
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
   const [filterType, setFilterType] = useState<FilterType>('all')
+  const [filterChapter, setFilterChapter] = useState<string>('all')
 
   useEffect(() => {
     fetch('/api/interviews').then(r => r.json()).then(setInterviews)
+    fetch('/api/chapters').then(r => r.json()).then(setChapters)
   }, [])
 
   const filtered = interviews.filter(iv => {
     if (filterStatus !== 'all' && iv.status !== filterStatus) return false
     if (filterType !== 'all' && iv.type !== filterType) return false
+    if (filterChapter !== 'all' && String(iv.chapter_id) !== filterChapter) return false
     return true
   })
 
@@ -70,6 +78,18 @@ export default function EntretiensPage() {
             <option value="3months">3 mois</option>
             <option value="7months">7 mois</option>
             <option value="10months">10 mois (Renouvellement)</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
+          <select
+            value={filterChapter}
+            onChange={e => setFilterChapter(e.target.value)}
+            className="text-sm text-gray-700 focus:outline-none"
+          >
+            <option value="all">Tous les chapitres</option>
+            {chapters.map(c => (
+              <option key={c.id} value={String(c.id)}>{c.name}</option>
+            ))}
           </select>
         </div>
       </div>

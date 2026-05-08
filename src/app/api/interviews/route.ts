@@ -19,9 +19,11 @@ export async function GET(req: NextRequest) {
     SELECT i.*,
       m.first_name || ' ' || m.last_name AS member_name,
       m.company, m.intro_date, m.chapter_id,
+      c.name AS chapter_name,
       a.first_name || ' ' || a.last_name AS ambassador_name
     FROM interviews i
     JOIN members m ON m.id = i.member_id
+    LEFT JOIN chapters c ON c.id = m.chapter_id
     LEFT JOIN ambassadors a ON a.id = i.ambassador_id
     ${where}
     ORDER BY CASE WHEN i.scheduled_date IS NULL THEN '9999-12-31'::date ELSE i.scheduled_date END ASC
