@@ -129,6 +129,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
   const [allMembers, setAllMembers] = useState<ParsedMember[]>([])
   const [format, setFormat] = useState<FileFormat>('database-export')
   const [importing, setImporting] = useState(false)
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
@@ -175,18 +176,35 @@ export default function ImportModal({ onClose, onImported }: Props) {
     setAllMembers(prev => prev.map(m => ({ ...m, selected: !allSelected })))
   }
 
+  const BATCH_SIZE = 50
+
   const doImport = async () => {
     const toImport = allMembers.filter(m => m.selected)
     if (!toImport.length) return
     setImporting(true)
-    const res = await fetch('/api/import/members', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ members: toImport }),
-    })
-    setResult(await res.json())
+    setProgress({ current: 0, total: toImport.length })
+
+    const aggregated: ImportResult = { imported: 0, updated: 0, deactivated: 0, errors: [] }
+
+    for (let i = 0; i < toImport.length; i += BATCH_SIZE) {
+      const batch = toImport.slice(i, i + BATCH_SIZE)
+      const res = await fetch('/api/import/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ members: batch }),
+      })
+      const data: ImportResult = await res.json()
+      aggregated.imported += data.imported ?? 0
+      aggregated.updated += data.updated ?? 0
+      aggregated.deactivated = data.deactivated ?? 0  // last batch is accurate
+      aggregated.errors.push(...(data.errors ?? []))
+      setProgress({ current: Math.min(i + BATCH_SIZE, toImport.length), total: toImport.length })
+    }
+
+    setResult(aggregated)
     setStep('result')
     setImporting(false)
+    setProgress(null)
   }
 
   const STATUS_COLOR: Record<string, string> = {
@@ -235,7 +253,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto relative">
 
           {/* Step 1: Upload */}
           {step === 'upload' && (
@@ -393,6 +411,35 @@ export default function ImportModal({ onClose, onImported }: Props) {
             </div>
           )}
 
+          {/* Importing progress overlay */}
+          {importing && progress && (
+            <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-20 rounded-2xl">
+              <div className="w-full max-w-sm px-6">
+                <div className="flex items-center justify-center mb-6">
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#fdf0ee' }}>
+                    <Upload size={28} style={{ color: '#C0392B' }} className="animate-bounce" />
+                  </div>
+                </div>
+                <p className="text-center font-semibold text-gray-900 mb-1">Import en cours…</p>
+                <p className="text-center text-sm text-gray-500 mb-6">
+                  {progress.current} / {progress.total} membres traités
+                </p>
+                <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden mb-2">
+                  <div
+                    className="h-3 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${Math.round((progress.current / progress.total) * 100)}%`,
+                      backgroundColor: '#C0392B',
+                    }}
+                  />
+                </div>
+                <p className="text-center text-xs text-gray-400">
+                  {Math.round((progress.current / progress.total) * 100)} %
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Step 3: Result */}
           {step === 'result' && result && (
             <div className="p-8 flex flex-col items-center justify-center min-h-64">
@@ -439,7 +486,8 @@ export default function ImportModal({ onClose, onImported }: Props) {
 
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
+          <button onClick={onClose} disabled={importing}
+            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed">
             {step === 'result' ? 'Fermer' : 'Annuler'}
           </button>
           <div className="flex items-center gap-3">
