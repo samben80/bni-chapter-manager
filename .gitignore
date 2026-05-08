@@ -42,3 +42,5 @@ next-env.d.ts
 
 # SQLite data (replaced by Neon/Postgres)
 /data
+
+.vercel
