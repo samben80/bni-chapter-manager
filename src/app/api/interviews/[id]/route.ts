@@ -50,3 +50,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   return NextResponse.json({ success: true })
 }
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  await sql`DELETE FROM interviews WHERE id = ${id}`
+  return NextResponse.json({ success: true })
+}

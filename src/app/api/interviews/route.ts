@@ -32,3 +32,10 @@ export async function GET(req: NextRequest) {
   const interviews = await sql.query(query, vals as unknown[])
   return NextResponse.json(interviews.rows ?? interviews)
 }
+
+export async function DELETE(req: NextRequest) {
+  const { ids }: { ids: number[] } = await req.json()
+  if (!ids?.length) return NextResponse.json({ error: 'No ids provided' }, { status: 400 })
+  await sql.query(`DELETE FROM interviews WHERE id = ANY($1)`, [ids])
+  return NextResponse.json({ deleted: ids.length })
+}
