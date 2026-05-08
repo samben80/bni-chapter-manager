@@ -28,7 +28,7 @@ interface ImportMember {
 const mapStatus = (s?: string) => {
   if (!s) return 'active'
   const l = s.toLowerCase()
-  if (l.includes('arrêt') || l.includes('arret') || l.includes('résilié')) return 'resigned'
+  if (l.includes('arrêt') || l.includes('arret') || l.includes('résilié') || l.includes('annul')) return 'resigned'
   if (l.includes('inactif') || l.includes('suspendu')) return 'inactive'
   return 'active'
 }
