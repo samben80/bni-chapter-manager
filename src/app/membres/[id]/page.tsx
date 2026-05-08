@@ -3,9 +3,20 @@
 import { useEffect, useState } from 'react'
 import { use } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, CalendarCheck, FileText, CheckCircle, Clock, AlertTriangle, Trash2 } from 'lucide-react'
+import { ArrowLeft, CalendarCheck, FileText, CheckCircle, Clock, AlertTriangle, Trash2, History } from 'lucide-react'
 import { formatDate, getInterviewLabel, getInterviewStatusColor, getInterviewStatusLabel } from '@/lib/utils'
 import type { Interview } from '@/lib/types'
+
+interface HistoryEntry {
+  id: number
+  chapter_name: string
+  intro_date: string
+  renewal_date?: string
+  status: string
+  bni_role?: string
+  company: string
+  activity: string
+}
 
 interface MemberDetail {
   id: number; full_name: string; company: string; activity: string; bni_activity?: string
@@ -16,6 +27,7 @@ interface MemberDetail {
   cumulative_duration?: string
   interviews: Interview[]
   assignments: { role: string; ambassador_name: string }[]
+  history: HistoryEntry[]
 }
 
 const STATUS_OPTIONS = [
@@ -26,6 +38,16 @@ const STATUS_OPTIONS = [
   { value: 'Postulation en cours',   label: 'Postulation en cours',   style: 'bg-purple-50 text-purple-600 border-purple-200' },
 ]
 
+const STATUS_BADGE: Record<string, string> = {
+  'Actif':                   'bg-green-50 text-green-700',
+  'Arrêté':                  'bg-red-50 text-red-600',
+  'Annulé':                  'bg-orange-50 text-orange-600',
+  'Renouvellement en cours': 'bg-blue-50 text-blue-600',
+  'Postulation en cours':    'bg-purple-50 text-purple-600',
+}
+
+type Tab = 'infos' | 'entretiens' | 'historique'
+
 export default function MembrePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
@@ -34,6 +56,7 @@ export default function MembrePage({ params }: { params: Promise<{ id: string }>
   const [savingStatus, setSavingStatus] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [tab, setTab] = useState<Tab>('infos')
 
   const load = () => fetch(`/api/members/${id}`).then(r => r.json()).then((data: MemberDetail) => {
     setMember(data)
@@ -68,6 +91,7 @@ export default function MembrePage({ params }: { params: Promise<{ id: string }>
   const interviewOrder: Record<string, number> = { preboarding: 1, '3months': 2, '7months': 3, '10months': 4 }
   const interviews = [...(member.interviews || [])].sort((a, b) => interviewOrder[a.type] - interviewOrder[b.type])
   const currentStatusStyle = STATUS_OPTIONS.find(o => o.value === status)?.style ?? ''
+  const hasHistory = member.history?.length > 0
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -83,7 +107,7 @@ export default function MembrePage({ params }: { params: Promise<{ id: string }>
         </button>
       </div>
 
-      {/* Header */}
+      {/* Header card */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
@@ -93,7 +117,6 @@ export default function MembrePage({ params }: { params: Promise<{ id: string }>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
             <PhaseBadge months={member.months_since_intro} />
-            {/* Status selector — saves immediately on change */}
             <div className="relative">
               <select
                 value={status}
@@ -142,13 +165,97 @@ export default function MembrePage({ params }: { params: Promise<{ id: string }>
         </div>
       </div>
 
-      {/* Timeline entretiens */}
-      <h2 className="font-semibold text-gray-900 mb-4">Parcours d&apos;entretiens</h2>
-      <div className="space-y-3">
-        {interviews.map(iv => (
-          <InterviewCard key={iv.id} interview={iv} />
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-5 p-1 bg-gray-100 rounded-lg w-fit">
+        {([
+          { value: 'infos',      label: 'Informations' },
+          { value: 'entretiens', label: `Entretiens (${interviews.length})` },
+          { value: 'historique', label: 'Historique', badge: hasHistory ? member.history.length : 0 },
+        ] as { value: Tab; label: string; badge?: number }[]).map(t => (
+          <button key={t.value} onClick={() => setTab(t.value)}
+            className={`px-4 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors ${
+              tab === t.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            {t.value === 'historique' && <History size={12} />}
+            {t.label}
+            {t.badge ? (
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${tab === t.value ? 'bg-amber-100 text-amber-700' : 'bg-transparent text-gray-400'}`}>
+                {t.badge}
+              </span>
+            ) : null}
+          </button>
         ))}
       </div>
+
+      {/* Tab: Informations */}
+      {tab === 'infos' && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 text-sm text-gray-500">
+          <p>Les informations détaillées du membre sont affichées dans la carte ci-dessus.</p>
+        </div>
+      )}
+
+      {/* Tab: Entretiens */}
+      {tab === 'entretiens' && (
+        <div className="space-y-3">
+          {interviews.length === 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
+              <CalendarCheck size={28} className="mx-auto mb-2 opacity-30" />
+              <p>Aucun entretien planifié</p>
+            </div>
+          )}
+          {interviews.map(iv => (
+            <InterviewCard key={iv.id} interview={iv} />
+          ))}
+        </div>
+      )}
+
+      {/* Tab: Historique */}
+      {tab === 'historique' && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          {!hasHistory ? (
+            <div className="p-8 text-center text-gray-400">
+              <History size={28} className="mx-auto mb-2 opacity-30" />
+              <p>Aucun historique — ce membre n&apos;a appartenu qu&apos;à un seul chapitre.</p>
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Chapitre</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Intronisation</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Renouvellement</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Rôle BNI</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Société</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Statut</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {member.history.map(h => (
+                  <tr key={h.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 font-medium text-gray-900">{h.chapter_name || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600">{formatDate(h.intro_date)}</td>
+                    <td className="px-4 py-3 text-gray-500">{h.renewal_date ? formatDate(h.renewal_date) : '—'}</td>
+                    <td className="px-4 py-3 text-gray-500">{h.bni_role || '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 max-w-[160px] truncate">{h.company || '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[h.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                        {h.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <a href={`/membres/${h.id}`}
+                        className="text-xs text-blue-500 hover:text-blue-700 hover:underline whitespace-nowrap">
+                        Voir fiche →
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {/* Confirm delete */}
       {confirmDelete && (

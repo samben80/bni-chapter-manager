@@ -36,7 +36,19 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     WHERE aa.member_id = ${id}
   `
 
-  return NextResponse.json({ ...member, interviews, assignments })
+  const history = await sql`
+    SELECT m2.id, m2.first_name, m2.last_name, m2.intro_date, m2.renewal_date,
+      m2.status, m2.bni_role, m2.company, m2.activity,
+      c.name AS chapter_name
+    FROM members m2
+    LEFT JOIN chapters c ON c.id = m2.chapter_id
+    WHERE m2.first_name = ${member.first_name}
+      AND m2.last_name  = ${member.last_name}
+      AND m2.id != ${id}
+    ORDER BY m2.intro_date DESC
+  `
+
+  return NextResponse.json({ ...member, interviews, assignments, history })
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

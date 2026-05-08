@@ -37,7 +37,8 @@ interface ParsedMember {
 
 interface Props { onClose: () => void; onImported: () => void }
 type Step = 'upload' | 'preview' | 'result'
-interface ImportResult { imported: number; updated: number; deactivated: number; errors: string[] }
+interface UpdatedMember { id: number; name: string; chapter_name: string; intro_date: string }
+interface ImportResult { imported: number; updated: number; deactivated: number; errors: string[]; updated_members?: UpdatedMember[] }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -184,7 +185,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
     setImporting(true)
     setProgress({ current: 0, total: toImport.length })
 
-    const aggregated: ImportResult = { imported: 0, updated: 0, deactivated: 0, errors: [] }
+    const aggregated: ImportResult = { imported: 0, updated: 0, deactivated: 0, errors: [], updated_members: [] }
 
     for (let i = 0; i < toImport.length; i += BATCH_SIZE) {
       const batch = toImport.slice(i, i + BATCH_SIZE)
@@ -198,6 +199,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
       aggregated.updated += data.updated ?? 0
       aggregated.deactivated = data.deactivated ?? 0  // last batch is accurate
       aggregated.errors.push(...(data.errors ?? []))
+      aggregated.updated_members = [...(aggregated.updated_members ?? []), ...(data.updated_members ?? [])]
       setProgress({ current: Math.min(i + BATCH_SIZE, toImport.length), total: toImport.length })
     }
 
@@ -476,9 +478,29 @@ export default function ImportModal({ onClose, onImported }: Props) {
                 </div>
               )}
               {result.imported > 0 && (
-                <p className="text-sm text-gray-500 text-center">
+                <p className="text-sm text-gray-500 text-center mb-4">
                   {result.imported} entretiens planifiés automatiquement (pré-boarding, 3 mois, 7 mois, 10 mois)
                 </p>
+              )}
+              {result.updated_members && result.updated_members.length > 0 && (
+                <div className="w-full max-w-sm">
+                  <p className="text-xs font-semibold text-gray-700 mb-2">
+                    Membres mis à jour ({result.updated_members.length}) :
+                  </p>
+                  <div className="bg-gray-50 rounded-lg divide-y divide-gray-100 max-h-52 overflow-y-auto">
+                    {result.updated_members.map(m => (
+                      <a key={m.id} href={`/membres/${m.id}`}
+                        onClick={() => { onImported(); onClose() }}
+                        className="flex items-center justify-between px-3 py-2 hover:bg-blue-50 transition-colors group">
+                        <div>
+                          <p className="text-sm font-bold text-gray-900">{m.name}</p>
+                          <p className="text-xs text-gray-400">{m.chapter_name} · {m.intro_date ? new Date(m.intro_date).toLocaleDateString('fr-FR') : ''}</p>
+                        </div>
+                        <span className="text-xs text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">Voir →</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}

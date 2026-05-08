@@ -43,7 +43,13 @@ export async function POST(req: NextRequest) {
 
   if (!members?.length) return NextResponse.json({ error: 'No members provided' }, { status: 400 })
 
-  const results = { imported: 0, updated: 0, deactivated: 0, errors: [] as string[] }
+  const results = {
+    imported: 0,
+    updated: 0,
+    deactivated: 0,
+    errors: [] as string[],
+    updated_members: [] as { id: number; name: string; chapter_name: string; intro_date: string }[],
+  }
 
   // Preload all chapters
   const existingChapters = await sql`SELECT id, name FROM chapters` as { id: number; name: string }[]
@@ -107,7 +113,7 @@ export async function POST(req: NextRequest) {
       const isNew = row.is_new
 
       if (isNew) {
-        // Create 4 interviews for new members only
+        // Create interviews for new members only
         const offsets: [string, number][] = [
           ['preboarding', 0], ['3months', 3], ['7months', 7], ['10months', 10]
         ]
@@ -126,23 +132,29 @@ export async function POST(req: NextRequest) {
         results.imported++
       } else {
         results.updated++
+        results.updated_members.push({
+          id: memberId,
+          name: `${m.first_name} ${m.last_name}`,
+          chapter_name: m.chapter_name || 'Sans chapitre',
+          intro_date: m.intro_date,
+        })
       }
     } catch (e) {
       results.errors.push(`${m.first_name} ${m.last_name}: ${e}`)
     }
   }
 
-  // Enforce single-active rule: keep only the latest intro_date as active
+  // Enforce single-active rule across all chapters: keep only the latest intro_date active
   const deactivated = await sql`
     UPDATE members SET status = 'Arrêté'
     WHERE status IN ('Actif', 'Renouvellement en cours', 'Postulation en cours')
       AND EXISTS (
         SELECT 1 FROM members m2
-        WHERE m2.chapter_id = members.chapter_id
-          AND m2.first_name = members.first_name
+        WHERE m2.first_name = members.first_name
           AND m2.last_name  = members.last_name
           AND m2.status     IN ('Actif', 'Renouvellement en cours', 'Postulation en cours')
           AND m2.intro_date > members.intro_date
+          AND m2.id        != members.id
       )
     RETURNING id
   `
