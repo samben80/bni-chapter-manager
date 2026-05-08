@@ -52,12 +52,12 @@ export default function Dashboard() {
   useEffect(() => {
     fetch('/api/dashboard')
       .then(r => {
-        if (r.status === 401) { setAuthError(true); return null }
-        if (!r.ok) return null
+        // r.redirected = true quand le middleware redirige vers /login (pas de cookie)
+        if (r.redirected || r.status === 401 || !r.ok) { setAuthError(true); return null }
         return r.json()
       })
       .then(d => { if (d) setData(d) })
-      .catch(console.error)
+      .catch(() => setAuthError(true))
   }, [])
 
   if (authError) {
