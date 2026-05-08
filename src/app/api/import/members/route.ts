@@ -111,11 +111,11 @@ export async function POST(req: NextRequest) {
           const interval = `${offset} months`
           await sql`
             INSERT INTO interviews (member_id, type, scheduled_date, status)
-            VALUES (
+            SELECT
               ${memberId}, ${type},
               (${m.intro_date}::date + ${interval}::interval)::date,
               'scheduled'
-            )
+            WHERE (${m.intro_date}::date + ${interval}::interval)::date >= '2026-01-01'
             ON CONFLICT (member_id, type) DO NOTHING
           `
         }
