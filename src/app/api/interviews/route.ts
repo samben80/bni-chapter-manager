@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
+import { getSession, unauthorized } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
+  const session = await getSession(req)
+  if (!session) return unauthorized()
+
   const { searchParams } = new URL(req.url)
   const memberId = searchParams.get('member_id')
   const type = searchParams.get('type')
@@ -13,6 +17,12 @@ export async function GET(req: NextRequest) {
   if (memberId) { vals.push(Number(memberId)); parts.push(`i.member_id = $${vals.length}`) }
   if (type) { vals.push(type); parts.push(`i.type = $${vals.length}`) }
   if (status) { vals.push(status); parts.push(`i.status = $${vals.length}`) }
+
+  if (session.role !== 'admin') {
+    if (session.chapterIds.length === 0) return NextResponse.json([])
+    vals.push(session.chapterIds)
+    parts.push(`m.chapter_id = ANY($${vals.length})`)
+  }
 
   const where = parts.length ? `WHERE ${parts.join(' AND ')}` : ''
   const query = `
@@ -29,11 +39,14 @@ export async function GET(req: NextRequest) {
     ORDER BY CASE WHEN i.scheduled_date IS NULL THEN '9999-12-31'::date ELSE i.scheduled_date END ASC
   `
 
-  const interviews = await sql.query(query, vals as unknown[])
+  const interviews = await sql.query(query, vals)
   return NextResponse.json(interviews.rows ?? interviews)
 }
 
 export async function DELETE(req: NextRequest) {
+  const session = await getSession(req)
+  if (!session) return unauthorized()
+
   const { ids }: { ids: number[] } = await req.json()
   if (!ids?.length) return NextResponse.json({ error: 'No ids provided' }, { status: 400 })
   await sql.query(`DELETE FROM interviews WHERE id = ANY($1)`, [ids])

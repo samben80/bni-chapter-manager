@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
+import { getSession, unauthorized } from '@/lib/auth'
 
 function parseChapters(raw: string | null) {
   if (!raw) return []
@@ -9,7 +10,9 @@ function parseChapters(raw: string | null) {
   })
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession(req)
+  if (!session) return unauthorized()
   const { id } = await params
 
   const [row] = await sql`
@@ -129,7 +132,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   return NextResponse.json({ ok: true })
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession(req)
+  if (!session) return unauthorized()
+  if (session.role === 'amb') return Response.json({ error: 'Accès refusé' }, { status: 403 })
   const { id } = await params
   await sql`UPDATE ambassadors SET active = 0 WHERE id = ${id}`
   return NextResponse.json({ ok: true })

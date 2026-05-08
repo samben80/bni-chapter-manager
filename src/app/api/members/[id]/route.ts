@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
+import { getSession, unauthorized } from '@/lib/auth'
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession(req)
+  if (!session) return unauthorized()
   const { id } = await params
 
   const [member] = await sql`
@@ -52,6 +55,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession(req)
+  if (!session) return unauthorized()
+  if (session.role === 'amb') return Response.json({ error: 'Accès refusé' }, { status: 403 })
   const { id } = await params
   const body = await req.json()
   const { first_name, last_name, company, activity, bni_activity, email, phone, intro_date, status } = body
@@ -68,6 +74,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession(req)
+  if (!session) return unauthorized()
+  if (session.role === 'amb') return Response.json({ error: 'Accès refusé' }, { status: 403 })
   const { id } = await params
   const { status } = await req.json()
   const allowed = ['Actif', 'Arrêté', 'Annulé', 'Renouvellement en cours', 'Postulation en cours']
@@ -76,7 +85,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   return NextResponse.json({ success: true })
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession(req)
+  if (!session) return unauthorized()
+  if (session.role === 'amb') return Response.json({ error: 'Accès refusé' }, { status: 403 })
   const { id } = await params
   await sql`DELETE FROM members WHERE id = ${id}`
   return NextResponse.json({ success: true })

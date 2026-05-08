@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
+import { getSession, unauthorized } from '@/lib/auth'
 
 interface ImportMember {
   first_name: string
@@ -38,6 +39,10 @@ const mapStatus = (s?: string) => {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getSession(req)
+  if (!session) return unauthorized()
+  if (session.role === 'amb') return Response.json({ error: 'Accès refusé' }, { status: 403 })
+
   const body = await req.json()
   const { members }: { members: ImportMember[] } = body
 
