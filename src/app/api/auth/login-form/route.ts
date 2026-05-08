@@ -1,7 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { sql } from '@/lib/db'
 import { signToken, SESSION_COOKIE, SessionPayload } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
+
+function htmlRedirect(destination: string, req: NextRequest, cookieHeader?: string): Response {
+  const safe = destination.replace(/"/g, '%22')
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta http-equiv="refresh" content="0; url=${safe}">
+</head><body><script>window.location.replace(${JSON.stringify(safe)})</script></body></html>`
+  const headers: Record<string, string> = {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store',
+  }
+  if (cookieHeader) headers['Set-Cookie'] = cookieHeader
+  return new Response(html, { status: 200, headers })
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,7 +24,7 @@ export async function POST(req: NextRequest) {
     const password = params.get('password') ?? ''
 
     if (!email || !password) {
-      return NextResponse.redirect(new URL('/login?error=missing_fields', req.url), { status: 302 })
+      return htmlRedirect('/login?error=missing_fields', req)
     }
 
     const [user] = await sql`
@@ -20,12 +33,12 @@ export async function POST(req: NextRequest) {
     ` as Record<string, unknown>[]
 
     if (!user || !user.active) {
-      return NextResponse.redirect(new URL('/login?error=invalid', req.url), { status: 302 })
+      return htmlRedirect('/login?error=invalid', req)
     }
 
     const valid = await bcrypt.compare(password, user.password_hash as string)
     if (!valid) {
-      return NextResponse.redirect(new URL('/login?error=invalid', req.url), { status: 302 })
+      return htmlRedirect('/login?error=invalid', req)
     }
 
     const chapterRows = await sql`
@@ -49,17 +62,21 @@ export async function POST(req: NextRequest) {
       destination = `/ambassadeurs/${user.ambassador_id}`
     }
 
-    const res = NextResponse.redirect(new URL(destination, req.url), { status: 302 })
-    res.cookies.set(SESSION_COOKIE, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60,
-      path: '/',
-    })
-    return res
+    const isProduction = process.env.NODE_ENV === 'production'
+    const maxAge = 7 * 24 * 60 * 60
+    const cookieHeader = [
+      `${SESSION_COOKIE}=${token}`,
+      'Path=/',
+      `Max-Age=${maxAge}`,
+      'HttpOnly',
+      'SameSite=Lax',
+      ...(isProduction ? ['Secure'] : []),
+    ].join('; ')
+
+    return htmlRedirect(destination, req, cookieHeader)
   } catch (e) {
     console.error('[login-form]', e)
-    return NextResponse.redirect(new URL('/login?error=server', req.url), { status: 302 })
+    return htmlRedirect('/login?error=server', req)
   }
 }
+

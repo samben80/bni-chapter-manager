@@ -28,7 +28,13 @@ export default function Sidebar() {
 
   useEffect(() => {
     if (path === '/login') return
-    fetch('/api/auth/me').then(r => r.ok ? r.json() : null).then(setSession)
+    fetch('/api/auth/me')
+      .then(r => {
+        if (r.status === 401) { window.location.href = '/login'; return null }
+        return r.ok ? r.json() : null
+      })
+      .then(d => { if (d) setSession(d) })
+      .catch(console.error)
   }, [path])
 
   if (path === '/login') return null

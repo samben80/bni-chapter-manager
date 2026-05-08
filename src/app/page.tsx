@@ -47,10 +47,23 @@ const PHASE_COLORS: Record<Phase, string> = {
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
+  const [authError, setAuthError] = useState(false)
 
   useEffect(() => {
-    fetch('/api/dashboard').then(r => r.json()).then(setData)
+    fetch('/api/dashboard')
+      .then(r => {
+        if (r.status === 401) { setAuthError(true); return null }
+        if (!r.ok) return null
+        return r.json()
+      })
+      .then(d => { if (d) setData(d) })
+      .catch(console.error)
   }, [])
+
+  if (authError) {
+    if (typeof window !== 'undefined') window.location.href = '/login'
+    return null
+  }
 
   if (!data) return (
     <div className="flex items-center justify-center h-full">
