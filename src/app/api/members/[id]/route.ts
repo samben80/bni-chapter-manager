@@ -58,7 +58,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { status } = await req.json()
-  const allowed = ['active', 'resigned', 'inactive']
+  const allowed = ['Actif', 'Arrêté', 'Annulé', 'Renouvellement en cours', 'Postulation en cours']
   if (!allowed.includes(status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
   await sql`UPDATE members SET status = ${status} WHERE id = ${id}`
   return NextResponse.json({ success: true })

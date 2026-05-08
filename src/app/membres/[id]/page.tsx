@@ -19,9 +19,11 @@ interface MemberDetail {
 }
 
 const STATUS_OPTIONS = [
-  { value: 'active',   label: 'Actif',    style: 'bg-green-50 text-green-700 border-green-200' },
-  { value: 'resigned', label: 'Résilié',  style: 'bg-red-50 text-red-600 border-red-200' },
-  { value: 'inactive', label: 'Inactif',  style: 'bg-gray-100 text-gray-500 border-gray-200' },
+  { value: 'Actif',                  label: 'Actif',                  style: 'bg-green-50 text-green-700 border-green-200' },
+  { value: 'Arrêté',                 label: 'Arrêté',                 style: 'bg-red-50 text-red-600 border-red-200' },
+  { value: 'Annulé',                 label: 'Annulé',                 style: 'bg-orange-50 text-orange-600 border-orange-200' },
+  { value: 'Renouvellement en cours', label: 'Renouvellement en cours', style: 'bg-blue-50 text-blue-600 border-blue-200' },
+  { value: 'Postulation en cours',   label: 'Postulation en cours',   style: 'bg-purple-50 text-purple-600 border-purple-200' },
 ]
 
 export default function MembrePage({ params }: { params: Promise<{ id: string }> }) {

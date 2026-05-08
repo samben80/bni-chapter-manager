@@ -25,12 +25,16 @@ interface ImportMember {
   status?: string
 }
 
+const VALID_STATUSES = ['Actif', 'Arrêté', 'Annulé', 'Renouvellement en cours', 'Postulation en cours']
 const mapStatus = (s?: string) => {
-  if (!s) return 'active'
+  if (!s) return 'Actif'
+  if (VALID_STATUSES.includes(s)) return s
   const l = s.toLowerCase()
-  if (l.includes('arrêt') || l.includes('arret') || l.includes('résilié') || l.includes('annul')) return 'resigned'
-  if (l.includes('inactif') || l.includes('suspendu')) return 'inactive'
-  return 'active'
+  if (l.includes('arrêt') || l.includes('arret')) return 'Arrêté'
+  if (l.includes('annul')) return 'Annulé'
+  if (l.includes('renouvellement')) return 'Renouvellement en cours'
+  if (l.includes('postulation')) return 'Postulation en cours'
+  return 'Actif'
 }
 
 export async function POST(req: NextRequest) {
@@ -130,14 +134,14 @@ export async function POST(req: NextRequest) {
 
   // Enforce single-active rule: keep only the latest intro_date as active
   const deactivated = await sql`
-    UPDATE members SET status = 'resigned'
-    WHERE status = 'active'
+    UPDATE members SET status = 'Arrêté'
+    WHERE status IN ('Actif', 'Renouvellement en cours', 'Postulation en cours')
       AND EXISTS (
         SELECT 1 FROM members m2
         WHERE m2.chapter_id = members.chapter_id
           AND m2.first_name = members.first_name
           AND m2.last_name  = members.last_name
-          AND m2.status     = 'active'
+          AND m2.status     IN ('Actif', 'Renouvellement en cours', 'Postulation en cours')
           AND m2.intro_date > members.intro_date
       )
     RETURNING id

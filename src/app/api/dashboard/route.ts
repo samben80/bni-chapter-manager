@@ -22,7 +22,7 @@ export async function GET() {
     recent,
     byChapterPhase,
   ] = await Promise.all([
-    sql`SELECT COUNT(*) AS c FROM members WHERE status = 'active'`,
+    sql`SELECT COUNT(*) AS c FROM members WHERE status IN ('Actif', 'Renouvellement en cours', 'Postulation en cours')`,
     sql`SELECT COUNT(*) AS c FROM interviews WHERE status IN ('pending', 'overdue')`,
     sql`SELECT COUNT(*) AS c FROM interviews WHERE status = 'completed' AND TO_CHAR(completed_date, 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM')`,
     sql`
@@ -34,7 +34,7 @@ export async function GET() {
       JOIN members m ON m.id = i.member_id
       LEFT JOIN ambassadors a ON a.id = i.ambassador_id
       WHERE i.status IN ('pending', 'scheduled', 'overdue')
-        AND m.status = 'active'
+        AND m.status IN ('Actif', 'Renouvellement en cours', 'Postulation en cours')
       ORDER BY
         CASE i.status WHEN 'overdue' THEN 0 ELSE 1 END,
         CASE WHEN i.scheduled_date IS NULL THEN '9999-12-31'::date ELSE i.scheduled_date END ASC
@@ -65,7 +65,7 @@ export async function GET() {
         MIN(FLOOR((CURRENT_DATE - m.intro_date) / 30.44)::int) AS sort_key
       FROM members m
       LEFT JOIN chapters c ON c.id = m.chapter_id
-      WHERE m.status = 'active'
+      WHERE m.status IN ('Actif', 'Renouvellement en cours', 'Postulation en cours')
       GROUP BY chapter_name, phase
       ORDER BY chapter_name, sort_key
     `,

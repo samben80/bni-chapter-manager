@@ -35,7 +35,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     FROM ambassador_assignments aa
     JOIN members m ON m.id = aa.member_id
     LEFT JOIN chapters ch ON ch.id = m.chapter_id
-    WHERE aa.ambassador_id = ${id} AND aa.end_date IS NULL AND m.status = 'active'
+    WHERE aa.ambassador_id = ${id} AND aa.end_date IS NULL AND m.status IN ('Actif', 'Renouvellement en cours', 'Postulation en cours')
     ORDER BY aa.role, m.last_name
   `
 
@@ -46,7 +46,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       SUM(CASE WHEN aa.role = 'coach_business' THEN 1 ELSE 0 END) AS coach_count
     FROM ambassador_assignments aa
     JOIN members m ON m.id = aa.member_id
-    WHERE aa.ambassador_id = ${id} AND aa.end_date IS NULL AND m.status = 'active'
+    WHERE aa.ambassador_id = ${id} AND aa.end_date IS NULL AND m.status IN ('Actif', 'Renouvellement en cours', 'Postulation en cours')
   `
 
   return NextResponse.json({

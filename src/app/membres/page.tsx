@@ -52,7 +52,7 @@ export default function MembresPage() {
   }
 
   // Filters
-  const [fStatus,     setFStatus]     = useState('active')
+  const [fStatus,     setFStatus]     = useState('Actif')
   const [fSearch,     setFSearch]     = useState('')
   const [fActivity,   setFActivity]   = useState('')
   const [fPhase,      setFPhase]      = useState('')
@@ -91,12 +91,11 @@ export default function MembresPage() {
     return [...names].sort()
   }, [members])
 
-  const statusCounts = useMemo(() => ({
-    '': members.length,
-    active:   members.filter(m => m.status === 'active').length,
-    resigned: members.filter(m => m.status === 'resigned').length,
-    inactive: members.filter(m => m.status === 'inactive').length,
-  }), [members])
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { '': members.length }
+    for (const m of members) counts[m.status] = (counts[m.status] ?? 0) + 1
+    return counts
+  }, [members])
 
   const hasFilters = !!(fSearch || fActivity || fPhase || fCity || fChapter || fRole || fAmbassador)
 
@@ -210,8 +209,8 @@ export default function MembresPage() {
           <h1 className="text-2xl font-bold text-gray-900">Membres</h1>
           <p className="text-gray-500 text-sm mt-1">
             {hasFilters
-              ? <>{filtered.length} résultat{filtered.length > 1 ? 's' : ''} sur {statusCounts[fStatus as keyof typeof statusCounts] ?? members.length}</>
-              : <>{filtered.length} membre{filtered.length > 1 ? 's' : ''}{fStatus === 'active' ? ' actif' : fStatus === 'resigned' ? ' résilié' : fStatus === 'inactive' ? ' inactif' : ''}{filtered.length > 1 ? 's' : ''}</>}
+              ? <>{filtered.length} résultat{filtered.length > 1 ? 's' : ''} sur {statusCounts[fStatus] ?? members.length}</>
+              : <>{filtered.length} membre{filtered.length > 1 ? 's' : ''}{fStatus ? ` · ${fStatus}` : ''}</>}
             {someSelected && <span className="ml-2 font-medium text-gray-700">· {selected.size} sélectionné{selected.size > 1 ? 's' : ''}</span>}
           </p>
         </div>
@@ -235,20 +234,22 @@ export default function MembresPage() {
       </div>
 
       {/* Status tabs */}
-      <div className="flex items-center gap-1 mb-4 p-1 bg-gray-100 rounded-lg w-fit">
-        {([
-          { value: '',         label: 'Tous'     },
-          { value: 'active',   label: 'Actifs'   },
-          { value: 'resigned', label: 'Résiliés' },
-          { value: 'inactive', label: 'Inactifs' },
-        ] as const).map(opt => (
+      <div className="flex flex-wrap items-center gap-1 mb-4 p-1 bg-gray-100 rounded-lg w-fit">
+        {[
+          { value: '',                       label: 'Tous'                  },
+          { value: 'Actif',                  label: 'Actif'                 },
+          { value: 'Arrêté',                 label: 'Arrêté'                },
+          { value: 'Annulé',                 label: 'Annulé'                },
+          { value: 'Renouvellement en cours', label: 'Renouvellement'        },
+          { value: 'Postulation en cours',   label: 'Postulation'           },
+        ].map(opt => (
           <button key={opt.value} onClick={() => setFStatus(opt.value)}
             className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors ${
               fStatus === opt.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}>
             {opt.label}
             <span className={`text-xs px-1.5 py-0.5 rounded-full ${fStatus === opt.value ? 'bg-gray-100 text-gray-600' : 'bg-transparent text-gray-400'}`}>
-              {statusCounts[opt.value]}
+              {statusCounts[opt.value] ?? 0}
             </span>
           </button>
         ))}
@@ -369,11 +370,17 @@ export default function MembresPage() {
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-gray-900 truncate">{m.full_name}</p>
-                      {m.status === 'resigned' && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium flex-shrink-0">Résilié</span>
+                      {m.status === 'Arrêté' && (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium flex-shrink-0">Arrêté</span>
                       )}
-                      {m.status === 'inactive' && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-medium flex-shrink-0">Inactif</span>
+                      {m.status === 'Annulé' && (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 font-medium flex-shrink-0">Annulé</span>
+                      )}
+                      {m.status === 'Renouvellement en cours' && (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium flex-shrink-0">Renouvellement</span>
+                      )}
+                      {m.status === 'Postulation en cours' && (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 font-medium flex-shrink-0">Postulation</span>
                       )}
                     </div>
                     {m.sponsor && <p className="text-xs text-gray-400 mt-0.5">Parrain : {m.sponsor}</p>}

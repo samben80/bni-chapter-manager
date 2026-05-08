@@ -1,7 +1,7 @@
 export type InterviewType = 'preboarding' | '3months' | '7months' | '10months'
 export type InterviewStatus = 'pending' | 'scheduled' | 'completed' | 'overdue'
 export type AmbassadorRole = 'onboarding' | 'coach_business' | 'both'
-export type MemberStatus = 'active' | 'inactive' | 'resigned'
+export type MemberStatus = 'Actif' | 'Arrêté' | 'Annulé' | 'Renouvellement en cours' | 'Postulation en cours'
 
 export interface Chapter {
   id: number
