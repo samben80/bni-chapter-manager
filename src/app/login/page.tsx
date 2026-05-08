@@ -1,10 +1,18 @@
 'use client'
 
-import { useActionState } from 'react'
-import { loginAction } from './actions'
+import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 
-export default function LoginPage() {
-  const [error, formAction, pending] = useActionState(loginAction, null)
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid: 'Email ou mot de passe incorrect',
+  missing_fields: 'Email et mot de passe requis',
+  server: 'Erreur serveur, veuillez réessayer',
+}
+
+function LoginForm() {
+  const searchParams = useSearchParams()
+  const errorKey = searchParams.get('error')
+  const error = errorKey ? (ERROR_MESSAGES[errorKey] ?? 'Erreur inconnue') : null
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -25,7 +33,7 @@ export default function LoginPage() {
         <h1 className="text-xl font-bold text-gray-900 mb-1">Connexion</h1>
         <p className="text-sm text-gray-500 mb-6">Accédez à votre espace</p>
 
-        <form action={formAction} className="space-y-4">
+        <form method="POST" action="/api/auth/login-form" className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
             <input
@@ -56,14 +64,21 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={pending}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-60 cursor-pointer"
+            className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity cursor-pointer"
             style={{ backgroundColor: '#C0392B' }}
           >
-            {pending ? 'Connexion...' : 'Se connecter'}
+            Se connecter
           </button>
         </form>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }
