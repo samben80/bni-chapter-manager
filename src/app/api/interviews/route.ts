@@ -27,7 +27,6 @@ export async function GET(req: NextRequest) {
     ORDER BY CASE WHEN i.scheduled_date IS NULL THEN '9999-12-31'::date ELSE i.scheduled_date END ASC
   `
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const interviews = await (sql as any)(query, vals)
-  return NextResponse.json(interviews)
+  const interviews = await sql.query(query, vals as unknown[])
+  return NextResponse.json(interviews.rows ?? interviews)
 }
