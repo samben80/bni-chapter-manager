@@ -25,10 +25,11 @@ export default function LoginPage() {
         setError(data.error ?? 'Erreur de connexion')
         return
       }
+      // Hard redirect so the browser sends the cookie on the new request
       if (data.role === 'amb' && data.ambassadorId) {
-        router.push(`/ambassadeurs/${data.ambassadorId}`)
+        window.location.href = `/ambassadeurs/${data.ambassadorId}`
       } else {
-        router.push('/')
+        window.location.href = '/'
       }
     } catch {
       setError('Erreur réseau')
