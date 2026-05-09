@@ -6,6 +6,15 @@ export async function GET(req: NextRequest) {
   const session = await getSession(req)
   if (!session) return unauthorized()
 
+  // ── diagnostic: test DB connection first ──────────────────────────────────
+  try {
+    const ping = await sql`SELECT 1 AS ok`
+    if (!ping) throw new Error('DB ping returned nothing')
+  } catch (e) {
+    return NextResponse.json({ error: 'DB_CONNECTION: ' + String(e) }, { status: 500 })
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   try {
     const isAdmin = session.role === 'admin'
     const cids: number[] = !isAdmin ? (session.chapterIds ?? []) : []
