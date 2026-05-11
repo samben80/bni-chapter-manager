@@ -45,13 +45,9 @@ export default function Sidebar() {
   }
 
   const role = session?.role
-  const nav = role === 'amb'
-    ? [{ href: `/ambassadeurs/${session?.ambassadorId}`, label: 'Mon profil', icon: UserCheck }]
-    : NAV_ALL
 
   function isActive(href: string) {
     if (href === '/') return path === '/'
-    if (href.startsWith('/ambassadeurs/')) return path === href
     return path.startsWith(href)
   }
 
@@ -73,7 +69,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Navigation</p>
-        {nav.map(({ href, label, icon: Icon }) => {
+        {NAV_ALL.map(({ href, label, icon: Icon }) => {
           const active = isActive(href)
           return (
             <Link
