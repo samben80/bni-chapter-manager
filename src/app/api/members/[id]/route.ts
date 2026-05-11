@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
-import { getSession, unauthorized } from '@/lib/auth'
+import { getSession, unauthorized, resolveAmbassadorRole, ONBOARDING_INTERVIEW_TYPES } from '@/lib/auth'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession(req)
@@ -19,11 +19,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (!member) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  // Restrict interview types for onboarding ambassadors
+  const ambRole = await resolveAmbassadorRole(session)
+  const typeFilter = (session.role === 'amb' && ambRole === 'onboarding')
+    ? sql`AND i.type = ANY(${[...ONBOARDING_INTERVIEW_TYPES]})`
+    : sql``
+
   const interviews = await sql`
     SELECT i.*, a.first_name || ' ' || a.last_name AS ambassador_name
     FROM interviews i
     LEFT JOIN ambassadors a ON a.id = i.ambassador_id
     WHERE i.member_id = ${id}
+    ${typeFilter}
     ORDER BY CASE i.type
       WHEN 'preboarding' THEN 1
       WHEN '3months' THEN 2

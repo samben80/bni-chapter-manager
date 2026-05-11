@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { NextRequest } from 'next/server'
+import { sql } from '@/lib/db'
 
 export const SESSION_COOKIE = 'bni-session'
 
@@ -51,3 +52,18 @@ export function unauthorized() {
 export function forbidden() {
   return Response.json({ error: 'Accès refusé' }, { status: 403 })
 }
+
+/**
+ * Resolve the ambassador's role for a session.
+ * Uses the JWT value if present (new tokens), falls back to DB for old tokens.
+ */
+export async function resolveAmbassadorRole(session: SessionPayload): Promise<string | undefined> {
+  if (session.role !== 'amb') return undefined
+  if (session.ambassadorRole) return session.ambassadorRole
+  if (!session.ambassadorId) return undefined
+  const [r] = await sql`SELECT role FROM ambassadors WHERE id = ${session.ambassadorId}`
+  return (r?.role as string) ?? undefined
+}
+
+/** Types visible to an onboarding ambassador */
+export const ONBOARDING_INTERVIEW_TYPES = ['preboarding', '3months'] as const

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
-import { getSession, unauthorized } from '@/lib/auth'
+import { getSession, unauthorized, resolveAmbassadorRole, ONBOARDING_INTERVIEW_TYPES } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   const session = await getSession(req)
@@ -22,6 +22,15 @@ export async function GET(req: NextRequest) {
     if (session.chapterIds.length === 0) return NextResponse.json([])
     vals.push(session.chapterIds)
     parts.push(`m.chapter_id = ANY($${vals.length})`)
+  }
+
+  // Onboarding ambassador: only preboarding + 3months
+  if (session.role === 'amb') {
+    const ambRole = await resolveAmbassadorRole(session)
+    if (ambRole === 'onboarding') {
+      vals.push([...ONBOARDING_INTERVIEW_TYPES])
+      parts.push(`i.type = ANY($${vals.length})`)
+    }
   }
 
   const where = parts.length ? `WHERE ${parts.join(' AND ')}` : ''

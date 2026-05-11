@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
-import { getSession, unauthorized } from '@/lib/auth'
+import { getSession, unauthorized, resolveAmbassadorRole, ONBOARDING_INTERVIEW_TYPES } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   const session = await getSession(req)
@@ -8,6 +8,13 @@ export async function GET(req: NextRequest) {
 
   const isAdmin = session.role === 'admin'
   const ids: number[] = Array.isArray(session.chapterIds) ? session.chapterIds : []
+
+  // Resolve interview type restriction for onboarding ambassadors
+  const ambRole = await resolveAmbassadorRole(session)
+  const isOnboarding = session.role === 'amb' && ambRole === 'onboarding'
+  const typeFilter = isOnboarding
+    ? sql`AND i.type = ANY(${[...ONBOARDING_INTERVIEW_TYPES]})`
+    : sql``
 
   // ── Overdue update ──────────────────────────────────────────────────────
   try {
@@ -88,6 +95,7 @@ export async function GET(req: NextRequest) {
           FROM interviews i
           JOIN members m ON m.id = i.member_id
           WHERE i.status IN ('pending','scheduled','overdue')
+          ${typeFilter}
           ORDER BY CASE WHEN i.status='overdue' THEN 0 ELSE 1 END,
                    i.scheduled_date ASC NULLS LAST
           LIMIT 10`
@@ -101,6 +109,7 @@ export async function GET(req: NextRequest) {
           JOIN members m ON m.id = i.member_id
           WHERE i.status IN ('pending','scheduled','overdue')
             AND m.chapter_id = ANY(${ids})
+          ${typeFilter}
           ORDER BY CASE WHEN i.status='overdue' THEN 0 ELSE 1 END,
                    i.scheduled_date ASC NULLS LAST
           LIMIT 10`
@@ -118,6 +127,7 @@ export async function GET(req: NextRequest) {
           FROM interviews i
           JOIN members m ON m.id = i.member_id
           WHERE i.status = 'completed'
+          ${typeFilter}
           ORDER BY i.completed_date DESC NULLS LAST
           LIMIT 5`
       : ids.length === 0 ? []
@@ -130,6 +140,7 @@ export async function GET(req: NextRequest) {
           JOIN members m ON m.id = i.member_id
           WHERE i.status = 'completed'
             AND m.chapter_id = ANY(${ids})
+          ${typeFilter}
           ORDER BY i.completed_date DESC NULLS LAST
           LIMIT 5`
   } catch { /* non-fatal */ }
