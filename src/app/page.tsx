@@ -47,23 +47,35 @@ const PHASE_COLORS: Record<Phase, string> = {
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
-  const [authError, setAuthError] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/dashboard')
-      .then(r => {
-        // r.redirected = true quand le middleware redirige vers /login (pas de cookie)
-        if (r.redirected || r.status === 401 || !r.ok) { setAuthError(true); return null }
+      .then(async r => {
+        if (r.redirected || r.status === 401) {
+          window.location.href = '/login'
+          return null
+        }
+        if (!r.ok) {
+          const body = await r.text()
+          setApiError(`HTTP ${r.status} — ${body.slice(0, 300)}`)
+          return null
+        }
         return r.json()
       })
       .then(d => { if (d) setData(d) })
-      .catch(() => setAuthError(true))
+      .catch(e => setApiError(String(e)))
   }, [])
 
-  if (authError) {
-    if (typeof window !== 'undefined') window.location.href = '/login'
-    return null
-  }
+  if (apiError) return (
+    <div className="p-8 font-mono text-sm">
+      <h2 className="text-red-700 font-bold text-base mb-2">Erreur tableau de bord</h2>
+      <pre className="bg-red-50 border border-red-200 rounded p-4 text-red-800 whitespace-pre-wrap">{apiError}</pre>
+      <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-gray-200 rounded text-xs">
+        Réessayer
+      </button>
+    </div>
+  )
 
   if (!data) return (
     <div className="flex items-center justify-center h-full">

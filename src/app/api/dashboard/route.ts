@@ -3,34 +3,41 @@ import { sql } from '@/lib/db'
 import { getSession, unauthorized } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
+  // ── Auth ──────────────────────────────────────────────────────────────────
   let session
   try {
     session = await getSession(req)
   } catch (e) {
-    console.error('[dashboard] getSession error:', e)
+    console.error('[dashboard] getSession threw:', e)
     return unauthorized()
   }
   if (!session) return unauthorized()
 
-  const isAdmin = session.role === 'admin'
-  const chapterFilter = !isAdmin && session.chapterIds.length > 0
+  console.log('[dashboard] session ok, role:', session.role)
 
-  // Build chapter-filter snippet for parameterized queries
-  // We'll use $1 for chapterIds array if needed
-  const baseParam = chapterFilter ? [session.chapterIds] : []
-  const chapterWhere = chapterFilter ? ' AND m.chapter_id = ANY($1)' : ''
+  const isAdmin = session.role === 'admin'
+  const ids: number[] = session.chapterIds ?? []
 
   // ── Overdue update ────────────────────────────────────────────────────────
   try {
     await sql.query(
       `UPDATE interviews SET status = 'overdue'
-       WHERE status = ANY($1)
+       WHERE status IN ('pending','scheduled')
          AND scheduled_date < CURRENT_DATE
-         AND scheduled_date IS NOT NULL`,
-      [['pending', 'scheduled']]
+         AND scheduled_date IS NOT NULL`
     )
   } catch (e) {
-    console.error('[dashboard] overdue update error:', e)
+    console.error('[dashboard] overdue update:', e)
+  }
+
+  // ── Helper: chapter filter snippet ───────────────────────────────────────
+  // Returns {sql: string, params: unknown[]} with $n starting at offset+1
+  function chapterClause(alias: string, offset: number) {
+    if (isAdmin || ids.length === 0) return { sql: '', params: [] }
+    return {
+      sql: ` AND ${alias}.chapter_id = ANY($${offset + 1})`,
+      params: [ids],
+    }
   }
 
   // ── Stats ─────────────────────────────────────────────────────────────────
@@ -40,56 +47,54 @@ export async function GET(req: NextRequest) {
   let completedThisMonth = 0
 
   try {
+    const ch = chapterClause('m', 0)
     const r = await sql.query(
       `SELECT COUNT(*) AS c FROM members m
-       WHERE m.status = ANY($${baseParam.length + 1})${chapterWhere}`,
-      [...baseParam, ['Actif', 'Renouvellement en cours', 'Postulation en cours']]
+       WHERE m.status IN ('Actif','Renouvellement en cours','Postulation en cours')${ch.sql}`,
+      ch.params
     )
     totalMembers = Number((r as any)[0]?.c ?? 0)
-  } catch (e) {
-    console.error('[dashboard] totalMembers error:', e)
-  }
+    console.log('[dashboard] totalMembers:', totalMembers)
+  } catch (e) { console.error('[dashboard] totalMembers:', e) }
 
   try {
+    const ch = chapterClause('m', 0)
     const r = await sql.query(
       `SELECT COUNT(*) AS c FROM interviews i
        JOIN members m ON m.id = i.member_id
-       WHERE i.status = 'overdue'${chapterWhere}`,
-      baseParam
+       WHERE i.status = 'overdue'${ch.sql}`,
+      ch.params
     )
     overdueCount = Number((r as any)[0]?.c ?? 0)
-  } catch (e) {
-    console.error('[dashboard] overdueCount error:', e)
-  }
+  } catch (e) { console.error('[dashboard] overdueCount:', e) }
 
   try {
+    const ch = chapterClause('m', 0)
     const r = await sql.query(
       `SELECT COUNT(*) AS c FROM interviews i
        JOIN members m ON m.id = i.member_id
-       WHERE i.status IN ('pending', 'scheduled')${chapterWhere}`,
-      baseParam
+       WHERE i.status IN ('pending','scheduled')${ch.sql}`,
+      ch.params
     )
     pendingInterviews = Number((r as any)[0]?.c ?? 0)
-  } catch (e) {
-    console.error('[dashboard] pendingInterviews error:', e)
-  }
+  } catch (e) { console.error('[dashboard] pendingInterviews:', e) }
 
   try {
+    const ch = chapterClause('m', 0)
     const r = await sql.query(
       `SELECT COUNT(*) AS c FROM interviews i
        JOIN members m ON m.id = i.member_id
        WHERE i.status = 'completed'
-         AND DATE_TRUNC('month', i.completed_date) = DATE_TRUNC('month', CURRENT_DATE)${chapterWhere}`,
-      baseParam
+         AND DATE_TRUNC('month', i.completed_date) = DATE_TRUNC('month', CURRENT_DATE)${ch.sql}`,
+      ch.params
     )
     completedThisMonth = Number((r as any)[0]?.c ?? 0)
-  } catch (e) {
-    console.error('[dashboard] completedThisMonth error:', e)
-  }
+  } catch (e) { console.error('[dashboard] completedThisMonth:', e) }
 
-  // ── Upcoming interviews (pending/scheduled/overdue, soonest first) ────────
+  // ── Upcoming ──────────────────────────────────────────────────────────────
   let upcoming: unknown[] = []
   try {
+    const ch = chapterClause('m', 0)
     const r = await sql.query(
       `SELECT i.id, i.member_id, i.type, i.scheduled_date, i.completed_date,
               i.status, i.created_at, i.updated_at,
@@ -97,21 +102,19 @@ export async function GET(req: NextRequest) {
               m.company, m.intro_date
        FROM interviews i
        JOIN members m ON m.id = i.member_id
-       WHERE i.status IN ('pending', 'scheduled', 'overdue')${chapterWhere}
-       ORDER BY
-         CASE WHEN i.status = 'overdue' THEN 0 ELSE 1 END,
-         i.scheduled_date ASC NULLS LAST
+       WHERE i.status IN ('pending','scheduled','overdue')${ch.sql}
+       ORDER BY CASE WHEN i.status='overdue' THEN 0 ELSE 1 END,
+                i.scheduled_date ASC NULLS LAST
        LIMIT 10`,
-      baseParam
+      ch.params
     )
-    upcoming = (r as unknown as any[]) ?? []
-  } catch (e) {
-    console.error('[dashboard] upcoming error:', e)
-  }
+    upcoming = (r as unknown as unknown[]) ?? []
+  } catch (e) { console.error('[dashboard] upcoming:', e) }
 
-  // ── Recent completed interviews ───────────────────────────────────────────
+  // ── Recent ────────────────────────────────────────────────────────────────
   let recent: unknown[] = []
   try {
+    const ch = chapterClause('m', 0)
     const r = await sql.query(
       `SELECT i.id, i.member_id, i.type, i.completed_date, i.status,
               i.created_at, i.updated_at,
@@ -119,40 +122,36 @@ export async function GET(req: NextRequest) {
               m.company
        FROM interviews i
        JOIN members m ON m.id = i.member_id
-       WHERE i.status = 'completed'${chapterWhere}
+       WHERE i.status = 'completed'${ch.sql}
        ORDER BY i.completed_date DESC NULLS LAST
        LIMIT 5`,
-      baseParam
+      ch.params
     )
-    recent = (r as unknown as any[]) ?? []
-  } catch (e) {
-    console.error('[dashboard] recent error:', e)
-  }
+    recent = (r as unknown as unknown[]) ?? []
+  } catch (e) { console.error('[dashboard] recent:', e) }
 
   // ── Members by chapter × phase ────────────────────────────────────────────
   let byChapterPhase: unknown[] = []
   try {
+    const ch = chapterClause('m', 0)
     const r = await sql.query(
-      `SELECT
-         c.name AS chapter_name,
-         CASE
-           WHEN FLOOR((CURRENT_DATE - m.intro_date) / 30.44) < 3  THEN 'Onboarding'
-           WHEN FLOOR((CURRENT_DATE - m.intro_date) / 30.44) < 6  THEN '3 mois'
-           WHEN FLOOR((CURRENT_DATE - m.intro_date) / 30.44) < 10 THEN '7 mois'
-           ELSE 'Renouvellement'
-         END AS phase,
-         COUNT(*) AS count
+      `SELECT c.name AS chapter_name,
+              CASE
+                WHEN EXTRACT(EPOCH FROM (CURRENT_DATE - m.intro_date)) / 2592000 < 3  THEN 'Onboarding'
+                WHEN EXTRACT(EPOCH FROM (CURRENT_DATE - m.intro_date)) / 2592000 < 6  THEN '3 mois'
+                WHEN EXTRACT(EPOCH FROM (CURRENT_DATE - m.intro_date)) / 2592000 < 10 THEN '7 mois'
+                ELSE 'Renouvellement'
+              END AS phase,
+              COUNT(*)::int AS count
        FROM members m
        JOIN chapters c ON c.id = m.chapter_id
-       WHERE m.status = ANY($${baseParam.length + 1})${chapterWhere}
+       WHERE m.status IN ('Actif','Renouvellement en cours','Postulation en cours')${ch.sql}
        GROUP BY c.name, 2
        ORDER BY c.name`,
-      [...baseParam, ['Actif', 'Renouvellement en cours', 'Postulation en cours']]
+      ch.params
     )
-    byChapterPhase = (r as unknown as any[]) ?? []
-  } catch (e) {
-    console.error('[dashboard] byChapterPhase error:', e)
-  }
+    byChapterPhase = (r as unknown as unknown[]) ?? []
+  } catch (e) { console.error('[dashboard] byChapterPhase:', e) }
 
   return NextResponse.json({
     stats: { totalMembers, pendingInterviews, completedThisMonth, overdueCount },
