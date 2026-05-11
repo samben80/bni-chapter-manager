@@ -123,6 +123,29 @@ export async function GET() {
   `
 
   await sql`
+    CREATE TABLE IF NOT EXISTS member_idp (
+      id SERIAL PRIMARY KEY,
+      member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+      report_date DATE NOT NULL,
+      presences   INTEGER DEFAULT 0,
+      absences    INTEGER DEFAULT 0,
+      retards     INTEGER DEFAULT 0,
+      m_col       INTEGER DEFAULT 0,
+      substituts  INTEGER DEFAULT 0,
+      rdi         INTEGER DEFAULT 0,
+      rde         INTEGER DEFAULT 0,
+      rri         INTEGER DEFAULT 0,
+      rre         INTEGER DEFAULT 0,
+      invites     INTEGER DEFAULT 0,
+      tet         NUMERIC(8,1) DEFAULT 0,
+      mpb         NUMERIC(15,2) DEFAULT 0,
+      ueg         INTEGER DEFAULT 0,
+      created_at  TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(member_id, report_date)
+    )
+  `
+
+  await sql`
     INSERT INTO chapters (name, region) VALUES ('BNI Impulse', 'Casablanca')
     ON CONFLICT (name) DO NOTHING
   `

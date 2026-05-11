@@ -8,6 +8,7 @@ import Form3Months from '@/components/forms/Form3Months'
 import Form7Months from '@/components/forms/Form7Months'
 import Form10Months from '@/components/forms/Form10Months'
 import FormPreboarding from '@/components/forms/FormPreboarding'
+import IdpSection from '@/components/IdpSection'
 import type { Interview } from '@/lib/types'
 
 interface InterviewDetail extends Interview {
@@ -21,6 +22,7 @@ export default function EntretienPage({ params }: { params: Promise<{ id: string
   const [formData, setFormData] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     fetch(`/api/interviews/${id}`).then(r => r.json()).then((iv: InterviewDetail) => {
@@ -29,6 +31,7 @@ export default function EntretienPage({ params }: { params: Promise<{ id: string
         setFormData(typeof iv.form_data === 'string' ? JSON.parse(iv.form_data) : iv.form_data)
       }
     })
+    fetch('/api/auth/me').then(r => r.json()).then(s => { if (s?.role === 'admin') setIsAdmin(true) })
   }, [id])
 
   const save = async (markComplete = false) => {
@@ -106,6 +109,11 @@ export default function EntretienPage({ params }: { params: Promise<{ id: string
         {interview.type === '10months' && (
           <Form10Months data={formData} onChange={setFormData} />
         )}
+      </div>
+
+      {/* IDP Section */}
+      <div className="mb-6">
+        <IdpSection memberId={interview.member_id} isAdmin={isAdmin} />
       </div>
 
       {/* Actions */}
