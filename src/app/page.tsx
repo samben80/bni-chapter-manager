@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Users, CalendarCheck, AlertTriangle, CheckCircle, Clock, LayoutGrid } from 'lucide-react'
 import { formatDate, getInterviewLabel } from '@/lib/utils'
 import type { Interview } from '@/lib/types'
@@ -109,7 +110,7 @@ export default function Dashboard() {
               <Clock size={16} className="text-gray-400" />
               <h2 className="font-semibold text-gray-900 text-sm">Entretiens à venir</h2>
             </div>
-            <a href="/entretiens" className="text-xs text-blue-600 hover:underline">Voir tout</a>
+            <Link href="/entretiens" className="text-xs text-blue-600 hover:underline">Voir tout</Link>
           </div>
           <div className="divide-y divide-gray-50">
             {upcoming.length === 0 && (

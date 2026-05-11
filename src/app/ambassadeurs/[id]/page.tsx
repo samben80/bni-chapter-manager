@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, use } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Edit2, Check, X, Trash2, Users, UserCheck, CalendarCheck, ChevronRight, AlertTriangle, Clock } from 'lucide-react'
 import { formatDate, getInterviewLabel, getInterviewStatusColor, getInterviewStatusLabel } from '@/lib/utils'
@@ -132,9 +133,9 @@ export default function AmbassadeurDetailPage({ params }: { params: Promise<{ id
     <div className="p-6 max-w-5xl mx-auto">
       {/* Nav */}
       <div className="flex items-center justify-between mb-6">
-        <a href="/ambassadeurs" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800">
+        <Link href="/ambassadeurs" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800">
           <ArrowLeft size={16} /> Retour aux ambassadeurs
-        </a>
+        </Link>
         <div className="flex items-center gap-2">
           {!editing && (
             <>

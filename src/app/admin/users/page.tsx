@@ -51,7 +51,8 @@ export default function AdminUsersPage() {
     setAmbassadors(Array.isArray(a) ? a : [])
   }
 
-  useEffect(() => { load() }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
+  useEffect(() => { void load() }, [])
 
   function openCreate() {
     setForm({ ...EMPTY_FORM })

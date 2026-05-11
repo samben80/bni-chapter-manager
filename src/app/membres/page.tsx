@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { Users, Plus, Search, ChevronRight, Upload, Trash2, X, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { formatDate, getAmbassadorType } from '@/lib/utils'
 import type { Member } from '@/lib/types'
@@ -31,6 +31,16 @@ const PHASES = [
 
 function getPhaseLabel(months: number) {
   return PHASES.find(p => months >= p.min && months < p.max)?.label ?? 'Renouvellement'
+}
+
+function Fc({ active, children }: { active: boolean; children: React.ReactNode }) {
+  return (
+    <th className="px-3 pb-2 pt-1">
+      <div className={`flex items-center bg-white border rounded-md px-2 py-1 ${active ? 'border-red-300' : 'border-gray-200'}`}>
+        {children}
+      </div>
+    </th>
+  )
 }
 
 export default function MembresPage() {
@@ -190,14 +200,6 @@ export default function MembresPage() {
             ? <ChevronUp size={11} className="text-gray-600 flex-shrink-0" />
             : <ChevronDown size={11} className="text-gray-600 flex-shrink-0" />}
       </span>
-    </th>
-  )
-
-  const Fc = ({ active, children }: { active: boolean; children: React.ReactNode }) => (
-    <th className="px-3 pb-2 pt-1">
-      <div className={`flex items-center bg-white border rounded-md px-2 py-1 ${active ? 'border-red-300' : 'border-gray-200'}`}>
-        {children}
-      </div>
     </th>
   )
 
