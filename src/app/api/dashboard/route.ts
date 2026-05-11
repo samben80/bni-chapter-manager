@@ -3,6 +3,20 @@ import { sql } from '@/lib/db'
 import { getSession, unauthorized } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
+  try {
+    return await dashboardHandler(req)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    const stack = e instanceof Error ? e.stack : undefined
+    console.error('[dashboard] UNCAUGHT ERROR:', msg, stack)
+    return NextResponse.json(
+      { error: msg, stack, stats: { totalMembers: 0, pendingInterviews: 0, completedThisMonth: 0, overdueCount: 0 }, upcoming: [], recent: [], byChapterPhase: [] },
+      { status: 200 }
+    )
+  }
+}
+
+async function dashboardHandler(req: NextRequest) {
   // ── Auth ──────────────────────────────────────────────────────────────────
   let session
   try {
