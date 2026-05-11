@@ -29,12 +29,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   // Onboarding ambassador cannot view coach_business or 'both' profiles
-  if (
-    session.role === 'amb' &&
-    session.ambassadorRole === 'onboarding' &&
-    (row.role === 'coach_business' || row.role === 'both')
-  ) {
-    return Response.json({ error: 'Accès refusé' }, { status: 403 })
+  if (session.role === 'amb' && (row.role === 'coach_business' || row.role === 'both')) {
+    // Resolve ambassador role — use JWT if present, otherwise query DB (old tokens)
+    let ambRole = session.ambassadorRole
+    if (!ambRole && session.ambassadorId) {
+      const [r] = await sql`SELECT role FROM ambassadors WHERE id = ${session.ambassadorId}`
+      ambRole = (r?.role as string) ?? undefined
+    }
+    if (ambRole === 'onboarding') {
+      return Response.json({ error: 'Accès refusé' }, { status: 403 })
+    }
   }
 
   const chapters = parseChapters(row.chapters_raw)

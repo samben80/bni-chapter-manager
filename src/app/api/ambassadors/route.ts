@@ -33,8 +33,14 @@ export async function GET(req: NextRequest) {
       SELECT 1 FROM ambassador_chapters ac2
       WHERE ac2.ambassador_id = a.id AND ac2.chapter_id = ANY($${vals.length})
     )`)
+    // Resolve ambassador role — use JWT if present, otherwise query DB (old tokens)
+    let ambRole = session.ambassadorRole
+    if (!ambRole && session.ambassadorId) {
+      const [r] = await sql`SELECT role FROM ambassadors WHERE id = ${session.ambassadorId}`
+      ambRole = (r?.role as string) ?? undefined
+    }
     // Onboarding ambassador cannot see coach_business ambassadors
-    if (session.ambassadorRole === 'onboarding') {
+    if (ambRole === 'onboarding') {
       conditions.push(`a.role NOT IN ('coach_business', 'both')`)
     }
   }
