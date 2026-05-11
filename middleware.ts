@@ -40,14 +40,6 @@ export async function middleware(req: NextRequest) {
       return res
     }
 
-    // AMB: restrict to their own ambassador page only
-    if (session.role === 'amb' && session.ambassadorId) {
-      const allowed = `/ambassadeurs/${session.ambassadorId}`
-      if (!pathname.startsWith('/api/') && !pathname.startsWith(allowed)) {
-        return NextResponse.redirect(new URL(allowed, req.url))
-      }
-    }
-
     return NextResponse.next()
   } catch (e) {
     // Never crash the middleware — fall through on unexpected error
