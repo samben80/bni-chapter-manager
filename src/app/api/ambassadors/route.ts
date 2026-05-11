@@ -25,8 +25,8 @@ export async function GET(req: NextRequest) {
     conditions.push(`(a.role = $${vals.length} OR a.role = 'both')`)
   }
 
-  // DC & AMB: filter by accessible chapters
-  if (session.role === 'dc' || session.role === 'amb') {
+  // AMB: filter by accessible chapters + role restriction
+  if (session.role === 'amb') {
     if (session.chapterIds.length === 0) return NextResponse.json([])
     vals.push(session.chapterIds)
     conditions.push(`EXISTS (
@@ -34,10 +34,11 @@ export async function GET(req: NextRequest) {
       WHERE ac2.ambassador_id = a.id AND ac2.chapter_id = ANY($${vals.length})
     )`)
     // Onboarding ambassador cannot see coach_business ambassadors
-    if (session.role === 'amb' && session.ambassadorRole === 'onboarding') {
+    if (session.ambassadorRole === 'onboarding') {
       conditions.push(`a.role NOT IN ('coach_business', 'both')`)
     }
   }
+  // DC: sees all ambassadors (no chapter filter)
 
   const where = `WHERE ${conditions.join(' AND ')}`
   const query = `
