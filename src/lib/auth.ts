@@ -12,6 +12,7 @@ export interface SessionPayload {
   role: UserRole
   chapterIds: number[]  // empty = all chapters (admin only)
   ambassadorId?: number
+  ambassadorRole?: string  // 'onboarding' | 'coach_business' | 'both' (amb only)
 }
 
 function secret() {

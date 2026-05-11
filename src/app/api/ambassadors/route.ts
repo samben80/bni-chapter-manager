@@ -33,6 +33,10 @@ export async function GET(req: NextRequest) {
       SELECT 1 FROM ambassador_chapters ac2
       WHERE ac2.ambassador_id = a.id AND ac2.chapter_id = ANY($${vals.length})
     )`)
+    // Onboarding ambassador cannot see coach_business ambassadors
+    if (session.role === 'amb' && session.ambassadorRole === 'onboarding') {
+      conditions.push(`a.role NOT IN ('coach_business', 'both')`)
+    }
   }
 
   const where = `WHERE ${conditions.join(' AND ')}`

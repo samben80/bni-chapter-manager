@@ -30,6 +30,12 @@ export async function POST(req: NextRequest) {
     `
     const chapterIds = chapterRows.map(r => Number(r.chapter_id))
 
+    let ambassadorRole: string | undefined
+    if (user.ambassador_id) {
+      const [amb] = await sql`SELECT role FROM ambassadors WHERE id = ${user.ambassador_id as number}`
+      ambassadorRole = (amb?.role as string) ?? undefined
+    }
+
     const payload: SessionPayload = {
       userId: user.id as number,
       name: user.name as string,
@@ -37,6 +43,7 @@ export async function POST(req: NextRequest) {
       role: user.role as SessionPayload['role'],
       chapterIds,
       ambassadorId: user.ambassador_id ? Number(user.ambassador_id) : undefined,
+      ambassadorRole,
     }
 
     const token = await signToken(payload)

@@ -28,6 +28,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  // Onboarding ambassador cannot view coach_business or 'both' profiles
+  if (
+    session.role === 'amb' &&
+    session.ambassadorRole === 'onboarding' &&
+    (row.role === 'coach_business' || row.role === 'both')
+  ) {
+    return Response.json({ error: 'Accès refusé' }, { status: 403 })
+  }
+
   const chapters = parseChapters(row.chapters_raw)
   const chapterIds = chapters.map(c => c.id)
 
