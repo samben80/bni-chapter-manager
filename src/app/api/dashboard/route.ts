@@ -46,12 +46,14 @@ export async function GET(req: NextRequest) {
     const r = isAdmin
       ? await sql`SELECT COUNT(*)::int AS c FROM interviews i
                   JOIN members m ON m.id = i.member_id
-                  WHERE i.status = 'overdue'`
+                  WHERE i.status = 'overdue'
+                  ${typeFilter}`
       : ids.length === 0 ? []
       : await sql`SELECT COUNT(*)::int AS c FROM interviews i
                   JOIN members m ON m.id = i.member_id
                   WHERE i.status = 'overdue'
-                    AND m.chapter_id = ANY(${ids})`
+                    AND m.chapter_id = ANY(${ids})
+                  ${typeFilter}`
     overdueCount = Number((r as { c: number }[])[0]?.c ?? 0)
   } catch { /* non-fatal */ }
 
@@ -59,12 +61,14 @@ export async function GET(req: NextRequest) {
     const r = isAdmin
       ? await sql`SELECT COUNT(*)::int AS c FROM interviews i
                   JOIN members m ON m.id = i.member_id
-                  WHERE i.status IN ('pending','scheduled')`
+                  WHERE i.status IN ('pending','scheduled')
+                  ${typeFilter}`
       : ids.length === 0 ? []
       : await sql`SELECT COUNT(*)::int AS c FROM interviews i
                   JOIN members m ON m.id = i.member_id
                   WHERE i.status IN ('pending','scheduled')
-                    AND m.chapter_id = ANY(${ids})`
+                    AND m.chapter_id = ANY(${ids})
+                  ${typeFilter}`
     pendingInterviews = Number((r as { c: number }[])[0]?.c ?? 0)
   } catch { /* non-fatal */ }
 
@@ -73,13 +77,15 @@ export async function GET(req: NextRequest) {
       ? await sql`SELECT COUNT(*)::int AS c FROM interviews i
                   JOIN members m ON m.id = i.member_id
                   WHERE i.status = 'completed'
-                    AND DATE_TRUNC('month', i.completed_date) = DATE_TRUNC('month', CURRENT_DATE)`
+                    AND DATE_TRUNC('month', i.completed_date) = DATE_TRUNC('month', CURRENT_DATE)
+                  ${typeFilter}`
       : ids.length === 0 ? []
       : await sql`SELECT COUNT(*)::int AS c FROM interviews i
                   JOIN members m ON m.id = i.member_id
                   WHERE i.status = 'completed'
                     AND DATE_TRUNC('month', i.completed_date) = DATE_TRUNC('month', CURRENT_DATE)
-                    AND m.chapter_id = ANY(${ids})`
+                    AND m.chapter_id = ANY(${ids})
+                  ${typeFilter}`
     completedThisMonth = Number((r as { c: number }[])[0]?.c ?? 0)
   } catch { /* non-fatal */ }
 
