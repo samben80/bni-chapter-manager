@@ -51,7 +51,7 @@ export default function AdminUsersPage() {
     setAmbassadors(Array.isArray(a) ? a : [])
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load() }, [])
 
   function openCreate() {
@@ -77,7 +77,7 @@ export default function AdminUsersPage() {
       const isNew = form.id === 0
       const body = {
         ...form,
-        chapter_ids: form.role === 'dc' ? form.chapter_ids : [],
+        chapter_ids: (form.role === 'dc' || form.role === 'amb') ? form.chapter_ids : [],
         ambassador_id: form.role === 'amb' ? form.ambassador_id : null,
       }
       const res = await fetch('/api/auth/users', {
@@ -149,8 +149,12 @@ export default function AdminUsersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3.5 text-gray-500 text-xs">
-                    {u.role === 'amb' && u.ambassador_name && (
-                      <span className="font-medium text-gray-700">{u.ambassador_name}</span>
+                    {u.role === 'amb' && (
+                      <span>
+                        {u.ambassador_name && <span className="font-medium text-gray-700">{u.ambassador_name}</span>}
+                        {u.ambassador_name && (u.chapter_ids?.length ?? 0) > 0 && ' · '}
+                        {(u.chapter_ids?.length ?? 0) > 0 && `${u.chapter_ids!.length} chapitre(s)`}
+                      </span>
                     )}
                     {u.role === 'dc' && (
                       <span>{(u.chapter_ids?.length ?? 0)} chapitre(s)</span>
@@ -228,7 +232,7 @@ export default function AdminUsersPage() {
                 </select>
               </Field>
 
-              {form.role === 'dc' && chapters.length > 0 && (
+              {(form.role === 'dc' || form.role === 'amb') && chapters.length > 0 && (
                 <Field label="Chapitres autorisés">
                   <div className="space-y-1.5 mt-1">
                     {chapters.map(c => (

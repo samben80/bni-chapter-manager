@@ -17,8 +17,8 @@ const getInstance = () => {
 const fn: SqlFn = (strings, ...values) =>
   getInstance()(strings as TemplateStringsArray, ...values) as Promise<unknown[]>
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ;(fn as SqlWithQuery).query = (q: string, vals?: unknown[]) =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (getInstance() as any).query(q, vals)
 
 export const sql = fn as SqlWithQuery

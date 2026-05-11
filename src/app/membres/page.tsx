@@ -43,6 +43,25 @@ function Fc({ active, children }: { active: boolean; children: React.ReactNode }
   )
 }
 
+function Th({ field, children, className = '', sortField, sortDir, onSort }: {
+  field: string; children: React.ReactNode; className?: string
+  sortField: string; sortDir: 'asc' | 'desc'; onSort: (f: string) => void
+}) {
+  return (
+    <th onClick={() => onSort(field)}
+      className={`text-left px-3 pt-2.5 pb-0 text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-800 select-none ${className}`}>
+      <span className="flex items-center gap-1">
+        {children}
+        {sortField !== field
+          ? <ChevronsUpDown size={11} className="text-gray-300 flex-shrink-0" />
+          : sortDir === 'asc'
+            ? <ChevronUp size={11} className="text-gray-600 flex-shrink-0" />
+            : <ChevronDown size={11} className="text-gray-600 flex-shrink-0" />}
+      </span>
+    </th>
+  )
+}
+
 export default function MembresPage() {
   const [members, setMembers] = useState<MemberRow[]>([])
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -189,20 +208,6 @@ export default function MembresPage() {
   const fs = 'w-full text-xs border-0 bg-transparent focus:outline-none text-gray-600 cursor-pointer'
   const fi = 'w-full text-xs border-0 bg-transparent focus:outline-none text-gray-600 placeholder-gray-400'
 
-  const Th = ({ field, children, className = '' }: { field: string; children: React.ReactNode; className?: string }) => (
-    <th onClick={() => handleSort(field)}
-      className={`text-left px-3 pt-2.5 pb-0 text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-800 select-none ${className}`}>
-      <span className="flex items-center gap-1">
-        {children}
-        {sortField !== field
-          ? <ChevronsUpDown size={11} className="text-gray-300 flex-shrink-0" />
-          : sortDir === 'asc'
-            ? <ChevronUp size={11} className="text-gray-600 flex-shrink-0" />
-            : <ChevronDown size={11} className="text-gray-600 flex-shrink-0" />}
-      </span>
-    </th>
-  )
-
   return (
     <div className="p-6 max-w-full mx-auto">
       {/* Header */}
@@ -282,12 +287,12 @@ export default function MembresPage() {
                   onChange={toggleAll}
                   className="w-4 h-4 rounded accent-red-600" />
               </th>
-              <Th field="full_name">Membre</Th>
-              <Th field="company">Société / Activité</Th>
-              <Th field="intro_date">Intronisation</Th>
-              <Th field="city">Ville</Th>
-              <Th field="chapter_name">Chapitre</Th>
-              <Th field="bni_role">Rôle BNI</Th>
+              <Th field="full_name" sortField={sortField} sortDir={sortDir} onSort={handleSort}>Membre</Th>
+              <Th field="company" sortField={sortField} sortDir={sortDir} onSort={handleSort}>Société / Activité</Th>
+              <Th field="intro_date" sortField={sortField} sortDir={sortDir} onSort={handleSort}>Intronisation</Th>
+              <Th field="city" sortField={sortField} sortDir={sortDir} onSort={handleSort}>Ville</Th>
+              <Th field="chapter_name" sortField={sortField} sortDir={sortDir} onSort={handleSort}>Chapitre</Th>
+              <Th field="bni_role" sortField={sortField} sortDir={sortDir} onSort={handleSort}>Rôle BNI</Th>
               <th className="px-3 py-2.5 w-16" rowSpan={2} />
             </tr>
             {/* Filters row */}

@@ -25,20 +25,14 @@ export async function GET(req: NextRequest) {
     conditions.push(`(a.role = $${vals.length} OR a.role = 'both')`)
   }
 
-  // DC: only ambassadors belonging to their chapters
-  if (session.role === 'dc') {
+  // DC & AMB: filter by accessible chapters
+  if (session.role === 'dc' || session.role === 'amb') {
     if (session.chapterIds.length === 0) return NextResponse.json([])
     vals.push(session.chapterIds)
     conditions.push(`EXISTS (
       SELECT 1 FROM ambassador_chapters ac2
       WHERE ac2.ambassador_id = a.id AND ac2.chapter_id = ANY($${vals.length})
     )`)
-  }
-
-  // AMB: only their own record
-  if (session.role === 'amb' && session.ambassadorId) {
-    vals.push(session.ambassadorId)
-    conditions.push(`a.id = $${vals.length}`)
   }
 
   const where = `WHERE ${conditions.join(' AND ')}`
