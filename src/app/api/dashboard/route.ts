@@ -29,6 +29,16 @@ async function dashboardHandler(req: NextRequest) {
 
   console.log('[dashboard] session ok, role:', session.role)
 
+  // ── DIAGNOSTIC: skip all DB calls, return test data ───────────────────────
+  console.log('[dashboard] chapterIds:', session.chapterIds, 'type:', typeof session.chapterIds, 'isArray:', Array.isArray(session.chapterIds))
+  return NextResponse.json({
+    _debug: 'no-db-test',
+    stats: { totalMembers: 99, pendingInterviews: 0, completedThisMonth: 0, overdueCount: 0 },
+    upcoming: [],
+    recent: [],
+    byChapterPhase: [],
+  })
+
   const isAdmin = session.role === 'admin'
   const ids: number[] = session.chapterIds ?? []
 
