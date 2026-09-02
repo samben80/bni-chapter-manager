@@ -36,7 +36,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       WHEN '3months' THEN 2
       WHEN '7months' THEN 3
       WHEN '10months' THEN 4
-    END
+      ELSE 5
+    END, i.created_at
   `
 
   const assignments = await sql`

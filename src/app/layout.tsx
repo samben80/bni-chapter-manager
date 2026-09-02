@@ -3,8 +3,8 @@ import './globals.css'
 import Sidebar from '@/components/Sidebar'
 
 export const metadata: Metadata = {
-  title: 'BNI Chapter Manager',
-  description: 'Gestion du chapitre BNI — Ambassadeurs, membres, entretiens',
+  title: 'BNI Morocco - Suivi Membres',
+  description: 'BNI Morocco — Suivi des membres, ambassadeurs et entretiens',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

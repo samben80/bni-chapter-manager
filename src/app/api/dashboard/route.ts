@@ -25,6 +25,55 @@ export async function GET(req: NextRequest) {
         AND scheduled_date IS NOT NULL`
   } catch { /* non-fatal */ }
 
+  // ── Auto-complete stale preboarding (> 3 mois sans réalisation) ──────────
+  try {
+    await sql`
+      UPDATE interviews
+      SET status = 'completed',
+          completed_date = scheduled_date
+      WHERE type = 'preboarding'
+        AND status != 'completed'
+        AND scheduled_date < CURRENT_DATE - INTERVAL '3 months'`
+  } catch { /* non-fatal */ }
+
+  // ── Backfill missing preboarding interviews ──────────────────────────────
+  // - Intronisations >= 2026-04-01 : overdue si date passée, sinon scheduled
+  // - Intronisations antérieures    : completed (déjà réalisé avant le suivi)
+  try {
+    await sql`
+      INSERT INTO interviews (member_id, type, scheduled_date, status, completed_date)
+      SELECT
+        m.id, 'preboarding', m.intro_date::date,
+        CASE
+          WHEN m.intro_date::date < '2026-04-01'::date THEN 'completed'
+          WHEN m.intro_date::date < CURRENT_DATE       THEN 'overdue'
+          ELSE 'scheduled'
+        END,
+        CASE
+          WHEN m.intro_date::date < '2026-04-01'::date THEN m.intro_date::date
+          ELSE NULL
+        END
+      FROM members m
+      WHERE m.intro_date IS NOT NULL
+        AND m.status IN ('Actif','Renouvellement en cours','Postulation en cours')
+        AND NOT EXISTS (
+          SELECT 1 FROM interviews i
+          WHERE i.member_id = m.id AND i.type = 'preboarding'
+        )
+      ON CONFLICT (member_id, type) DO NOTHING`
+  } catch { /* non-fatal */ }
+
+  // ── Preboarding visibility filters ──────────────────────────────────────
+  // upcoming  : masquer preboarding en retard de > 3 mois
+  // overdue   : afficher preboarding uniquement si retard entre 6 mois et 1 an
+  const prebUpcomingExclude = sql`
+    AND NOT (i.type = 'preboarding'
+             AND i.scheduled_date < CURRENT_DATE - INTERVAL '3 months')`
+  const prebOverdueInclude = sql`
+    AND (i.type != 'preboarding' OR (
+          i.scheduled_date <  CURRENT_DATE - INTERVAL '6 months'
+      AND i.scheduled_date >= CURRENT_DATE - INTERVAL '1 year'))`
+
   // ── Stats ────────────────────────────────────────────────────────────────
   let totalMembers = 0
   let overdueCount = 0
@@ -47,12 +96,14 @@ export async function GET(req: NextRequest) {
       ? await sql`SELECT COUNT(*)::int AS c FROM interviews i
                   JOIN members m ON m.id = i.member_id
                   WHERE i.status = 'overdue'
+                  ${prebOverdueInclude}
                   ${typeFilter}`
       : ids.length === 0 ? []
       : await sql`SELECT COUNT(*)::int AS c FROM interviews i
                   JOIN members m ON m.id = i.member_id
                   WHERE i.status = 'overdue'
                     AND m.chapter_id = ANY(${ids})
+                  ${prebOverdueInclude}
                   ${typeFilter}`
     overdueCount = Number((r as { c: number }[])[0]?.c ?? 0)
   } catch { /* non-fatal */ }
@@ -101,6 +152,7 @@ export async function GET(req: NextRequest) {
           FROM interviews i
           JOIN members m ON m.id = i.member_id
           WHERE i.status IN ('pending','scheduled','overdue')
+          ${prebUpcomingExclude}
           ${typeFilter}
           ORDER BY CASE WHEN i.status='overdue' THEN 0 ELSE 1 END,
                    i.scheduled_date ASC NULLS LAST
@@ -115,6 +167,7 @@ export async function GET(req: NextRequest) {
           JOIN members m ON m.id = i.member_id
           WHERE i.status IN ('pending','scheduled','overdue')
             AND m.chapter_id = ANY(${ids})
+          ${prebUpcomingExclude}
           ${typeFilter}
           ORDER BY CASE WHEN i.status='overdue' THEN 0 ELSE 1 END,
                    i.scheduled_date ASC NULLS LAST
@@ -151,18 +204,43 @@ export async function GET(req: NextRequest) {
           LIMIT 5`
   } catch { /* non-fatal */ }
 
+  // Phase expression reusable: days since intro / 30.44
+  // (CURRENT_DATE - date) returns integer days in PostgreSQL — no EXTRACT needed
+  const phaseExpr = sql`
+    CASE
+      WHEN m.intro_date IS NULL                                  THEN 'Renouvellement'
+      WHEN (CURRENT_DATE - m.intro_date::date) < 91             THEN 'Onboarding'
+      WHEN (CURRENT_DATE - m.intro_date::date) < 183            THEN '3 mois'
+      WHEN (CURRENT_DATE - m.intro_date::date) < 304            THEN '7 mois'
+      ELSE 'Renouvellement'
+    END
+  `
+
+  // ── Phase totals (for timeline) ──────────────────────────────────────────
+  let phaseTotals: unknown[] = []
+  try {
+    phaseTotals = isAdmin
+      ? await sql`
+          SELECT ${phaseExpr} AS phase, COUNT(*)::int AS count
+          FROM members m
+          WHERE m.status IN ('Actif','Renouvellement en cours','Postulation en cours')
+          GROUP BY 1`
+      : ids.length === 0 ? []
+      : await sql`
+          SELECT ${phaseExpr} AS phase, COUNT(*)::int AS count
+          FROM members m
+          WHERE m.status IN ('Actif','Renouvellement en cours','Postulation en cours')
+            AND m.chapter_id = ANY(${ids})
+          GROUP BY 1`
+  } catch { /* non-fatal */ }
+
   // ── Members by chapter × phase ───────────────────────────────────────────
   let byChapterPhase: unknown[] = []
   try {
     byChapterPhase = isAdmin
       ? await sql`
           SELECT c.name AS chapter_name,
-                 CASE
-                   WHEN EXTRACT(EPOCH FROM (CURRENT_DATE - m.intro_date)) / 2592000 < 3  THEN 'Onboarding'
-                   WHEN EXTRACT(EPOCH FROM (CURRENT_DATE - m.intro_date)) / 2592000 < 6  THEN '3 mois'
-                   WHEN EXTRACT(EPOCH FROM (CURRENT_DATE - m.intro_date)) / 2592000 < 10 THEN '7 mois'
-                   ELSE 'Renouvellement'
-                 END AS phase,
+                 ${phaseExpr} AS phase,
                  COUNT(*)::int AS count
           FROM members m
           JOIN chapters c ON c.id = m.chapter_id
@@ -172,12 +250,7 @@ export async function GET(req: NextRequest) {
       : ids.length === 0 ? []
       : await sql`
           SELECT c.name AS chapter_name,
-                 CASE
-                   WHEN EXTRACT(EPOCH FROM (CURRENT_DATE - m.intro_date)) / 2592000 < 3  THEN 'Onboarding'
-                   WHEN EXTRACT(EPOCH FROM (CURRENT_DATE - m.intro_date)) / 2592000 < 6  THEN '3 mois'
-                   WHEN EXTRACT(EPOCH FROM (CURRENT_DATE - m.intro_date)) / 2592000 < 10 THEN '7 mois'
-                   ELSE 'Renouvellement'
-                 END AS phase,
+                 ${phaseExpr} AS phase,
                  COUNT(*)::int AS count
           FROM members m
           JOIN chapters c ON c.id = m.chapter_id
@@ -192,5 +265,6 @@ export async function GET(req: NextRequest) {
     upcoming,
     recent,
     byChapterPhase,
+    phaseTotals,
   })
 }

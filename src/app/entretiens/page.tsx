@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CalendarCheck, ChevronRight, Filter, Trash2, X } from 'lucide-react'
+import { CalendarCheck, ChevronRight, ChevronUp, ChevronDown, Filter, Trash2, X } from 'lucide-react'
 import { formatDate, getInterviewLabel, getInterviewStatusColor, getInterviewStatusLabel } from '@/lib/utils'
 import type { Interview, InterviewType } from '@/lib/types'
 
 type FilterStatus = 'all' | 'pending' | 'overdue' | 'completed'
 type FilterType = 'all' | InterviewType
+type SortKey = 'member_name' | 'type' | 'scheduled_date' | 'status' | 'ambassador_name'
+type SortDir = 'asc' | 'desc'
 
 interface InterviewRow extends Interview {
   member_name: string
@@ -18,12 +20,35 @@ interface InterviewRow extends Interview {
 
 interface Chapter { id: number; name: string }
 
+const STATUS_ORDER: Record<string, number> = { overdue: 0, pending: 1, scheduled: 2, completed: 3 }
+
+function sortRows(rows: InterviewRow[], key: SortKey, dir: SortDir): InterviewRow[] {
+  return [...rows].sort((a, b) => {
+    let cmp = 0
+    if (key === 'scheduled_date') {
+      const da = a.scheduled_date ?? a.completed_date ?? ''
+      const db = b.scheduled_date ?? b.completed_date ?? ''
+      cmp = da < db ? -1 : da > db ? 1 : 0
+    } else if (key === 'status') {
+      cmp = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9)
+    } else {
+      const va = (a[key] ?? '') as string
+      const vb = (b[key] ?? '') as string
+      cmp = va.localeCompare(vb, 'fr', { sensitivity: 'base' })
+    }
+    return dir === 'asc' ? cmp : -cmp
+  })
+}
+
 export default function EntretiensPage() {
   const [interviews, setInterviews] = useState<InterviewRow[]>([])
   const [chapters, setChapters] = useState<Chapter[]>([])
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
   const [filterType, setFilterType] = useState<FilterType>('all')
   const [filterChapter, setFilterChapter] = useState<string>('all')
+  const [showCompleted, setShowCompleted] = useState(false)
+  const [sortKey, setSortKey] = useState<SortKey>('scheduled_date')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [confirmDelete, setConfirmDelete] = useState<'single' | 'bulk' | null>(null)
@@ -40,14 +65,25 @@ export default function EntretiensPage() {
 
   useEffect(() => { load() }, [])
 
-  const filtered = interviews.filter(iv => {
-    if (filterStatus !== 'all' && iv.status !== filterStatus) return false
-    if (filterType !== 'all' && iv.type !== filterType) return false
-    if (filterChapter !== 'all' && String(iv.chapter_id) !== filterChapter) return false
-    return true
-  })
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+  }
+
+  const filtered = sortRows(
+    interviews.filter(iv => {
+      if (!showCompleted && iv.status === 'completed') return false
+      if (filterStatus !== 'all' && iv.status !== filterStatus) return false
+      if (filterType !== 'all' && iv.type !== filterType) return false
+      if (filterChapter !== 'all' && String(iv.chapter_id) !== filterChapter) return false
+      return true
+    }),
+    sortKey,
+    sortDir,
+  )
 
   const overdueCount = interviews.filter(iv => iv.status === 'overdue').length
+  const completedCount = interviews.filter(iv => iv.status === 'completed').length
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(iv => selected.has(iv.id))
   const someSelected = selected.size > 0
@@ -91,7 +127,7 @@ export default function EntretiensPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
           <Filter size={14} className="text-gray-400" />
           <select
@@ -131,6 +167,20 @@ export default function EntretiensPage() {
             ))}
           </select>
         </div>
+
+        {/* Show completed toggle */}
+        <label className="flex items-center gap-2 ml-auto cursor-pointer select-none text-sm text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50">
+          <input
+            type="checkbox"
+            checked={showCompleted}
+            onChange={e => setShowCompleted(e.target.checked)}
+            className="w-4 h-4 rounded accent-red-600"
+          />
+          Voir les entretiens réalisés
+          {completedCount > 0 && (
+            <span className="ml-1 text-xs text-gray-400">({completedCount})</span>
+          )}
+        </label>
       </div>
 
       {/* Bulk delete toolbar */}
@@ -161,11 +211,11 @@ export default function EntretiensPage() {
                   onChange={toggleAll}
                   className="w-4 h-4 rounded accent-red-600" />
               </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Membre</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Type</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date prévue</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Ambassadeur</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Statut</th>
+              <SortHeader label="Membre" col="member_name" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <SortHeader label="Type" col="type" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <SortHeader label="Date prévue" col="scheduled_date" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <SortHeader label="Ambassadeur" col="ambassador_name" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <SortHeader label="Statut" col="status" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -180,10 +230,13 @@ export default function EntretiensPage() {
             )}
             {filtered.map(iv => {
               const isSelected = selected.has(iv.id)
+              const isCompleted = iv.status === 'completed'
               return (
                 <tr key={iv.id}
                   onClick={() => toggleOne(iv.id)}
-                  className={`transition-colors cursor-pointer group ${isSelected ? 'bg-red-50/40' : 'hover:bg-gray-50'}`}>
+                  className={`transition-colors cursor-pointer group ${
+                    isSelected ? 'bg-red-50/40' : isCompleted ? 'opacity-60 hover:opacity-100 hover:bg-gray-50' : 'hover:bg-gray-50'
+                  }`}>
                   <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                     <input type="checkbox" checked={isSelected} onChange={() => toggleOne(iv.id)}
                       className="w-4 h-4 rounded accent-red-600" />
@@ -263,5 +316,37 @@ export default function EntretiensPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function SortHeader({
+  label, col, sortKey, sortDir, onSort
+}: {
+  label: string
+  col: SortKey
+  sortKey: SortKey
+  sortDir: SortDir
+  onSort: (col: SortKey) => void
+}) {
+  const active = sortKey === col
+  return (
+    <th
+      className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-gray-800 group"
+      onClick={() => onSort(col)}
+    >
+      <span className="flex items-center gap-1">
+        {label}
+        <span className="flex flex-col">
+          <ChevronUp
+            size={10}
+            className={active && sortDir === 'asc' ? 'text-red-500' : 'text-gray-300 group-hover:text-gray-400'}
+          />
+          <ChevronDown
+            size={10}
+            className={active && sortDir === 'desc' ? 'text-red-500' : 'text-gray-300 group-hover:text-gray-400'}
+          />
+        </span>
+      </span>
+    </th>
   )
 }

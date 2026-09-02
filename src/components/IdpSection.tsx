@@ -11,20 +11,20 @@ interface IdpRow {
   invites: number; tet: number; mpb: number; ueg: number
 }
 
-const COLS: { key: keyof IdpRow; label: string; unit?: string }[] = [
-  { key: 'presences',  label: 'P',    },
-  { key: 'absences',   label: 'A',    },
-  { key: 'retards',    label: 'L',    },
-  { key: 'm_col',      label: 'M',    },
-  { key: 'substituts', label: 'S',    },
-  { key: 'rdi',        label: 'RDI',  },
-  { key: 'rde',        label: 'RDE',  },
-  { key: 'rri',        label: 'RRI',  },
-  { key: 'rre',        label: 'RRE',  },
-  { key: 'invites',    label: 'Inv.', },
-  { key: 'tet',        label: 'TêT',  },
-  { key: 'mpb',        label: 'MPB',  unit: 'MAD' },
-  { key: 'ueg',        label: 'UEG',  },
+const COLS: { key: keyof IdpRow; label: string; unit?: string; title?: string }[] = [
+  { key: 'presences',  label: 'P',    title: 'Présences' },
+  { key: 'absences',   label: 'A',    title: 'Absences' },
+  { key: 'retards',    label: 'L',    title: 'Retards' },
+  { key: 'm_col',      label: 'M',    title: 'Membre en colère' },
+  { key: 'substituts', label: 'S',    title: 'Substituts' },
+  { key: 'rdi',        label: 'RDI',  title: 'Recommandations Données Internes' },
+  { key: 'rde',        label: 'RDE',  title: 'Recommandations Données Externes' },
+  { key: 'rri',        label: 'RRI',  title: 'Recommandations Reçues Internes' },
+  { key: 'rre',        label: 'RRE',  title: 'Recommandations Reçues Externes' },
+  { key: 'invites',    label: 'Inv.', title: 'Invités' },
+  { key: 'tet',        label: 'TêT',  title: 'Tête-à-Tête' },
+  { key: 'mpb',        label: 'MPB',  unit: 'MAD', title: 'Merci Pour Business' },
+  { key: 'ueg',        label: 'UEG',  title: 'Unités Équivalentes Groupe' },
 ]
 
 function fmt(v: number, unit?: string) {
@@ -155,7 +155,7 @@ export default function IdpSection({ memberId, isAdmin }: { memberId: number; is
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-4 py-2.5 text-gray-500 font-semibold uppercase tracking-wide whitespace-nowrap">Rapport</th>
                 {COLS.map(c => (
-                  <th key={c.key} className="text-center px-3 py-2.5 text-gray-500 font-semibold uppercase tracking-wide whitespace-nowrap">
+                  <th key={c.key} title={c.title} className="text-center px-3 py-2.5 text-gray-500 font-semibold uppercase tracking-wide whitespace-nowrap cursor-help">
                     {c.label}{c.unit ? <span className="text-gray-400 normal-case font-normal"> ({c.unit})</span> : ''}
                   </th>
                 ))}

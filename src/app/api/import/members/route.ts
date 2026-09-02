@@ -119,10 +119,31 @@ export async function POST(req: NextRequest) {
 
       if (isNew) {
         // Create interviews for new members only
-        const offsets: [string, number][] = [
-          ['preboarding', 0], ['3months', 3], ['7months', 7], ['10months', 10]
+        // Preboarding: always create on intro_date
+        // - Intronisations >= 2026-04-01 : overdue si date passée, sinon scheduled
+        // - Intronisations antérieures    : marquer directement comme completed
+        await sql`
+          INSERT INTO interviews (member_id, type, scheduled_date, status, completed_date)
+          VALUES (
+            ${memberId}, 'preboarding',
+            ${m.intro_date}::date,
+            CASE
+              WHEN ${m.intro_date}::date < '2026-04-01'::date THEN 'completed'
+              WHEN ${m.intro_date}::date < CURRENT_DATE       THEN 'overdue'
+              ELSE 'scheduled'
+            END,
+            CASE
+              WHEN ${m.intro_date}::date < '2026-04-01'::date THEN ${m.intro_date}::date
+              ELSE NULL
+            END
+          )
+          ON CONFLICT (member_id, type) DO NOTHING
+        `
+        // Other interviews: only schedule if date hasn't passed yet
+        const futureOffsets: [string, number][] = [
+          ['3months', 3], ['7months', 7], ['10months', 10]
         ]
-        for (const [type, offset] of offsets) {
+        for (const [type, offset] of futureOffsets) {
           const interval = `${offset} months`
           await sql`
             INSERT INTO interviews (member_id, type, scheduled_date, status)

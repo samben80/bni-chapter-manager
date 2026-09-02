@@ -4,7 +4,7 @@ import { sql } from '@/lib/db'
 
 export const SESSION_COOKIE = 'bni-session'
 
-export type UserRole = 'admin' | 'dc' | 'amb'
+export type UserRole = 'admin' | 'codir' | 'amb' | 'dc' | 'dz' | 'dr'
 
 export interface SessionPayload {
   userId: number
@@ -13,7 +13,8 @@ export interface SessionPayload {
   role: UserRole
   chapterIds: number[]  // empty = all chapters (admin only)
   ambassadorId?: number
-  ambassadorRole?: string  // 'onboarding' | 'coach_business' | 'both' (amb only)
+  ambassadorRole?: string  // kept for JWT backwards compat
+  ambRole?: string         // 'onboarding' | 'coach_business' (from users.amb_role)
 }
 
 function secret() {
@@ -54,11 +55,12 @@ export function forbidden() {
 }
 
 /**
- * Resolve the ambassador's role for a session.
- * Uses the JWT value if present (new tokens), falls back to DB for old tokens.
+ * Resolve the ambassador's sub-role for a session.
+ * Reads ambRole (new tokens) → ambassadorRole (old JWT compat) → DB fallback.
  */
 export async function resolveAmbassadorRole(session: SessionPayload): Promise<string | undefined> {
   if (session.role !== 'amb') return undefined
+  if (session.ambRole) return session.ambRole
   if (session.ambassadorRole) return session.ambassadorRole
   if (!session.ambassadorId) return undefined
   const [r] = await sql`SELECT role FROM ambassadors WHERE id = ${session.ambassadorId}`

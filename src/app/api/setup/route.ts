@@ -150,6 +150,17 @@ export async function GET() {
     ON CONFLICT (name) DO NOTHING
   `
 
+  // ── Migrations users table ───────────────────────────────────────────────
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT`
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name  TEXT`
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS company    TEXT`
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone      TEXT`
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS amb_role   TEXT`
+  // Extend role constraint to include new roles
+  await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`
+  await sql`ALTER TABLE users ADD CONSTRAINT users_role_check
+    CHECK (role IN ('admin','codir','amb','dc','dz','dr'))`
+
   // Create default admin account if none exists
   const existing = await sql`SELECT id FROM users WHERE role = 'admin' LIMIT 1`
   if (existing.length === 0) {

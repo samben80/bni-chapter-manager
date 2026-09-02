@@ -4,22 +4,25 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
-  LayoutDashboard, Users, CalendarCheck, UserCheck, LogOut, ShieldCheck
+  LayoutDashboard, Users, CalendarCheck, LogOut, ShieldCheck, BarChart2, UserCheck
 } from 'lucide-react'
 import type { SessionPayload, UserRole } from '@/lib/auth'
 
 const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Administrateur',
-  dc: 'Directeur Consultatif',
-  amb: 'Ambassadeur',
+  codir: 'CODIR',
+  dc:    'Directeur Consultatif',
+  dz:    'Directeur de Zone',
+  dr:    'Directeur de Région',
+  amb:   'Ambassadeur',
 }
 
 const NAV_ALL = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/membres', label: 'Membres', icon: Users },
   { href: '/entretiens', label: 'Entretiens', icon: CalendarCheck },
-  { href: '/ambassadeurs', label: 'Ambassadeurs', icon: UserCheck },
 ]
+
 
 export default function Sidebar() {
   const path = usePathname()
@@ -60,8 +63,8 @@ export default function Sidebar() {
             BNI
           </div>
           <div>
-            <p className="text-white font-semibold text-sm leading-tight">Chapter Manager</p>
-            <p className="text-gray-400 text-xs">BNI Maroc</p>
+            <p className="text-white font-semibold text-sm leading-tight">BNI Morocco</p>
+            <p className="text-gray-400 text-xs">Suivi Membres</p>
           </div>
         </div>
       </div>
@@ -86,19 +89,60 @@ export default function Sidebar() {
           )
         })}
 
+        {role === 'amb' && session?.ambassadorId && (
+          <div className="pt-4">
+            <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Mon espace</p>
+            <Link
+              href={`/ambassadeurs/${session.ambassadorId}`}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                path.startsWith('/ambassadeurs') ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+              style={path.startsWith('/ambassadeurs') ? { backgroundColor: '#C0392B' } : {}}
+            >
+              <UserCheck size={18} />
+              Mon activité
+            </Link>
+          </div>
+        )}
+
+        {(role === 'codir' || role === 'dc' || role === 'dz' || role === 'dr') && (
+          <div className="pt-4">
+            <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Suivi</p>
+            <Link
+              href="/ambassadeurs"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                path.startsWith('/ambassadeurs') ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+              style={path.startsWith('/ambassadeurs') ? { backgroundColor: '#C0392B' } : {}}
+            >
+              <UserCheck size={18} />
+              Ambassadeurs
+            </Link>
+          </div>
+        )}
+
         {role === 'admin' && (
           <div className="pt-4">
             <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Administration</p>
-            <Link
-              href="/admin/users"
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                path.startsWith('/admin') ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
-              style={path.startsWith('/admin') ? { backgroundColor: '#C0392B' } : {}}
-            >
-              <ShieldCheck size={18} />
-              Utilisateurs
-            </Link>
+            {[
+              { href: '/admin/users', label: 'Utilisateurs', icon: ShieldCheck },
+              { href: '/admin/idp',   label: 'IDP',          icon: BarChart2  },
+            ].map(({ href, label, icon: Icon }) => {
+              const active = path.startsWith(href)
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    active ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                  style={active ? { backgroundColor: '#C0392B' } : {}}
+                >
+                  <Icon size={18} />
+                  {label}
+                </Link>
+              )
+            })}
           </div>
         )}
       </nav>

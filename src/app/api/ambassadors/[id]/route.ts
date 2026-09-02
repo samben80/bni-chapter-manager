@@ -44,7 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const chapters = parseChapters(row.chapters_raw)
   const chapterIds = chapters.map(c => c.id)
 
-  const [assignments, stats, chapterMembers, chapterInterviews] = await Promise.all([
+  const [assignments, stats, chapterMembers, chapterInterviews, ownInterviews] = await Promise.all([
     sql`
       SELECT aa.id, aa.role, aa.start_date,
         m.id AS member_id,
@@ -105,6 +105,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           [chapterIds]
         ).then(r => r.rows ?? r)
       : Promise.resolve([]),
+    // Own interviews: all statuses, filtered by ambassador_id
+    sql.query(
+      `SELECT i.id, i.type, i.scheduled_date, i.completed_date, i.status,
+        m.id AS member_id,
+        m.first_name || ' ' || m.last_name AS member_name,
+        m.company, m.chapter_id,
+        c.name AS chapter_name
+      FROM interviews i
+      JOIN members m ON m.id = i.member_id
+      LEFT JOIN chapters c ON c.id = m.chapter_id
+      WHERE i.ambassador_id = $1
+      ORDER BY
+        CASE i.status WHEN 'overdue' THEN 0 WHEN 'scheduled' THEN 1 WHEN 'pending' THEN 2 ELSE 3 END,
+        CASE WHEN i.scheduled_date IS NULL THEN '9999-12-31'::date ELSE i.scheduled_date END ASC`,
+      [id]
+    ).then(r => r.rows ?? r),
   ])
 
   return NextResponse.json({
@@ -115,6 +131,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     stats: stats[0],
     chapter_members: chapterMembers,
     chapter_interviews: chapterInterviews,
+    own_interviews: ownInterviews,
   })
 }
 

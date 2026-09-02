@@ -19,17 +19,17 @@ export function Field({ label, value, onChange, type = 'text', placeholder, suff
   type?: string; placeholder?: string; suffix?: string
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <label className="text-sm text-gray-600 w-64 flex-shrink-0">{label}</label>
-      <div className="flex items-center gap-2 flex-1">
+    <div className="flex items-center gap-3 min-w-0">
+      <label className="text-sm text-gray-600 flex-1 min-w-0">{label}</label>
+      <div className="flex items-center gap-2 flex-shrink-0">
         <input
           type={type}
           value={value ?? ''}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100"
+          className="w-44 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 min-w-0"
         />
-        {suffix && <span className="text-sm text-gray-400 flex-shrink-0">{suffix}</span>}
+        {suffix && <span className="text-sm text-gray-400">{suffix}</span>}
       </div>
     </div>
   )
@@ -39,17 +39,17 @@ export function NumberField({ label, value, onChange, suffix }: {
   label: string; value: number | undefined; onChange: (v: number) => void; suffix?: string
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <label className="text-sm text-gray-600 w-64 flex-shrink-0">{label}</label>
-      <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3 min-w-0">
+      <label className="text-sm text-gray-600 flex-1 min-w-0">{label}</label>
+      <div className="flex items-center gap-1.5 flex-shrink-0">
         <input
           type="number"
           value={value ?? ''}
           onChange={e => onChange(Number(e.target.value))}
-          className="w-32 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100"
+          className="w-24 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 text-right"
           min={0}
         />
-        {suffix && <span className="text-sm text-gray-400">{suffix}</span>}
+        {suffix && <span className="text-xs text-gray-400 w-8 text-left">{suffix}</span>}
       </div>
     </div>
   )
@@ -97,8 +97,8 @@ export function RatingField({ label, value, onChange, max = 10 }: {
   label: string; value: number | undefined; onChange: (v: number) => void; max?: number
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <label className="text-sm text-gray-600 w-64 flex-shrink-0">{label}</label>
+    <div className="flex flex-wrap items-center gap-3 min-w-0">
+      <label className="text-sm text-gray-600 flex-1 min-w-0">{label}</label>
       <div className="flex items-center gap-1">
         {Array.from({ length: max }, (_, i) => i + 1).map(n => (
           <button

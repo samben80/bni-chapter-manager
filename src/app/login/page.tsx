@@ -25,8 +25,8 @@ function LoginForm() {
             BNI
           </div>
           <div>
-            <p className="font-semibold text-gray-900 text-sm">Chapter Manager</p>
-            <p className="text-xs text-gray-400">BNI Maroc</p>
+            <p className="font-semibold text-gray-900 text-sm">BNI Morocco</p>
+            <p className="text-xs text-gray-400">Suivi Membres</p>
           </div>
         </div>
 

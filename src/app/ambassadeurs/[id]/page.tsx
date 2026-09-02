@@ -3,7 +3,10 @@
 import { useEffect, useState, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Edit2, Check, X, Trash2, Users, UserCheck, CalendarCheck, ChevronRight, AlertTriangle, Clock } from 'lucide-react'
+import {
+  ArrowLeft, Edit2, Check, X, Trash2, Users, UserCheck,
+  CalendarCheck, ChevronRight, AlertTriangle, Clock, CheckCircle, FileText,
+} from 'lucide-react'
 import { formatDate, getInterviewLabel, getInterviewStatusColor, getInterviewStatusLabel } from '@/lib/utils'
 
 interface Chapter { id: number; name: string }
@@ -23,7 +26,13 @@ interface ChapterMember {
 interface ChapterInterview {
   id: number; type: string; scheduled_date?: string; status: string
   member_id: number; member_name: string; company: string
-  chapter_id: number; chapter_name: string; ambassador_name?: string
+  chapter_id: number; chapter_name: string
+}
+
+interface OwnInterview {
+  id: number; type: string; scheduled_date?: string; completed_date?: string; status: string
+  member_id: number; member_name: string; company: string
+  chapter_id: number; chapter_name: string
 }
 
 interface AmbassadorDetail {
@@ -34,9 +43,11 @@ interface AmbassadorDetail {
   stats: { total_members: number; onboarding_count: number; coach_count: number }
   chapter_members: ChapterMember[]
   chapter_interviews: ChapterInterview[]
+  own_interviews: OwnInterview[]
 }
 
 type Tab = 'profil' | 'membres' | 'entretiens'
+type StatusFilter = 'all' | 'overdue' | 'scheduled' | 'completed'
 
 const ROLE_LABEL: Record<string, string> = {
   onboarding: 'On Boarding',
@@ -73,6 +84,9 @@ export default function AmbassadeurDetailPage({ params }: { params: Promise<{ id
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [tab, setTab] = useState<Tab>('profil')
   const [chapterFilter, setChapterFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [isOwnProfile, setIsOwnProfile] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const load = () => fetch(`/api/ambassadors/${id}`).then(r => r.json()).then((data: AmbassadorDetail) => {
     setAmb(data)
@@ -83,7 +97,11 @@ export default function AmbassadeurDetailPage({ params }: { params: Promise<{ id
   useEffect(() => {
     load()
     fetch('/api/chapters').then(r => r.json()).then(setAllChapters)
-  }, [id])
+    fetch('/api/auth/me').then(r => r.json()).then((sess: { role: string; ambassadorId?: number }) => {
+      setIsAdmin(sess.role === 'admin')
+      setIsOwnProfile(sess.ambassadorId === Number(id))
+    })
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
@@ -123,21 +141,33 @@ export default function AmbassadeurDetailPage({ params }: { params: Promise<{ id
     ? amb.chapter_members
     : amb.chapter_members.filter(m => String(m.chapter_id) === chapterFilter)
 
-  const filteredInterviews = chapterFilter === 'all'
-    ? amb.chapter_interviews
-    : amb.chapter_interviews.filter(i => String(i.chapter_id) === chapterFilter)
+  // Own interviews with status + chapter filter
+  const ownInterviews = amb.own_interviews ?? []
+  const overdueOwn    = ownInterviews.filter(i => i.status === 'overdue')
+  const scheduledOwn  = ownInterviews.filter(i => i.status === 'scheduled' || i.status === 'pending')
+  const completedOwn  = ownInterviews.filter(i => i.status === 'completed')
 
-  const overdueCount = amb.chapter_interviews.filter(i => i.status === 'overdue').length
+  const filteredOwn = ownInterviews.filter(i => {
+    const statusOk = statusFilter === 'all' || i.status === statusFilter ||
+      (statusFilter === 'scheduled' && i.status === 'pending')
+    const chapterOk = chapterFilter === 'all' || String(i.chapter_id) === chapterFilter
+    return statusOk && chapterOk
+  })
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {/* Nav */}
       <div className="flex items-center justify-between mb-6">
-        <Link href="/ambassadeurs" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800">
-          <ArrowLeft size={16} /> Retour aux ambassadeurs
-        </Link>
+        {isOwnProfile
+          ? <Link href="/" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800">
+              <ArrowLeft size={16} /> Tableau de bord
+            </Link>
+          : <Link href="/ambassadeurs" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800">
+              <ArrowLeft size={16} /> Retour aux ambassadeurs
+            </Link>
+        }
         <div className="flex items-center gap-2">
-          {!editing && (
+          {isAdmin && !editing && (
             <>
               <button onClick={() => setEditing(true)}
                 className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
@@ -165,7 +195,7 @@ export default function AmbassadeurDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      {/* Profile header (always visible) */}
+      {/* Profile header */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
         <div className="flex items-start gap-4 mb-4">
           <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
@@ -242,9 +272,9 @@ export default function AmbassadeurDetailPage({ params }: { params: Promise<{ id
         {([
           { value: 'profil',     label: 'Profil & Affectations' },
           { value: 'membres',    label: `Membres (${amb.chapter_members.length})` },
-          { value: 'entretiens', label: `Entretiens (${amb.chapter_interviews.length})`, alert: overdueCount },
+          { value: 'entretiens', label: `Entretiens (${ownInterviews.length})`, alert: overdueOwn.length },
         ] as { value: Tab; label: string; alert?: number }[]).map(t => (
-          <button key={t.value} onClick={() => { setTab(t.value); setChapterFilter('all') }}
+          <button key={t.value} onClick={() => { setTab(t.value); setChapterFilter('all'); setStatusFilter('all') }}
             className={`px-4 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors ${
               tab === t.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}>
@@ -285,10 +315,11 @@ export default function AmbassadeurDetailPage({ params }: { params: Promise<{ id
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <StatBadge label="Membres suivis" value={amb.stats?.total_members ?? 0} icon={<Users size={16} />} />
-            <StatBadge label="On Boarding" value={amb.stats?.onboarding_count ?? 0} icon={<UserCheck size={16} />} color="blue" />
-            <StatBadge label="Coach Business" value={amb.stats?.coach_count ?? 0} icon={<UserCheck size={16} />} color="purple" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <StatCard label="Membres suivis" value={amb.stats?.total_members ?? 0} icon={<Users size={16} />} />
+            <StatCard label="On Boarding" value={amb.stats?.onboarding_count ?? 0} icon={<UserCheck size={16} />} color="blue" />
+            <StatCard label="Coach Business" value={amb.stats?.coach_count ?? 0} icon={<UserCheck size={16} />} color="purple" />
+            <StatCard label="Entretiens réalisés" value={completedOwn.length} icon={<CheckCircle size={16} />} color="green" />
           </div>
 
           {/* Assigned members */}
@@ -373,24 +404,73 @@ export default function AmbassadeurDetailPage({ params }: { params: Promise<{ id
       {/* ─── Tab: Entretiens ─────────────────────────────────── */}
       {tab === 'entretiens' && (
         <>
-          {amb.chapters.length > 1 && (
-            <div className="flex items-center gap-2 mb-4">
-              <select value={chapterFilter} onChange={e => setChapterFilter(e.target.value)}
-                className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none">
-                <option value="all">Tous les chapitres ({amb.chapter_interviews.length})</option>
-                {amb.chapters.map(c => (
-                  <option key={c.id} value={String(c.id)}>
-                    {c.name} ({amb.chapter_interviews.filter(i => i.chapter_id === c.id).length})
-                  </option>
-                ))}
-              </select>
+          {/* Activity stats */}
+          <div className="grid grid-cols-3 gap-4 mb-5">
+            <button onClick={() => setStatusFilter(statusFilter === 'overdue' ? 'all' : 'overdue')}
+              className={`rounded-xl border p-4 flex items-center gap-3 transition-all text-left ${
+                statusFilter === 'overdue' ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-white hover:border-gray-300'
+              }`}>
+              <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={16} className="text-red-600" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-gray-900">{overdueOwn.length}</p>
+                <p className="text-xs text-gray-500">En retard</p>
+              </div>
+            </button>
+            <button onClick={() => setStatusFilter(statusFilter === 'scheduled' ? 'all' : 'scheduled')}
+              className={`rounded-xl border p-4 flex items-center gap-3 transition-all text-left ${
+                statusFilter === 'scheduled' ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300'
+              }`}>
+              <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <Clock size={16} className="text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-gray-900">{scheduledOwn.length}</p>
+                <p className="text-xs text-gray-500">Planifiés</p>
+              </div>
+            </button>
+            <button onClick={() => setStatusFilter(statusFilter === 'completed' ? 'all' : 'completed')}
+              className={`rounded-xl border p-4 flex items-center gap-3 transition-all text-left ${
+                statusFilter === 'completed' ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white hover:border-gray-300'
+              }`}>
+              <div className="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                <CheckCircle size={16} className="text-green-600" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-gray-900">{completedOwn.length}</p>
+                <p className="text-xs text-gray-500">Réalisés</p>
+              </div>
+            </button>
+          </div>
+
+          {/* Filters */}
+          {(amb.chapters.length > 1 || statusFilter !== 'all') && (
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              {amb.chapters.length > 1 && (
+                <select value={chapterFilter} onChange={e => setChapterFilter(e.target.value)}
+                  className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none">
+                  <option value="all">Tous les chapitres</option>
+                  {amb.chapters.map(c => (
+                    <option key={c.id} value={String(c.id)}>{c.name}</option>
+                  ))}
+                </select>
+              )}
+              {statusFilter !== 'all' && (
+                <button onClick={() => setStatusFilter('all')}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 flex items-center gap-1">
+                  <X size={11} /> Effacer le filtre
+                </button>
+              )}
             </div>
           )}
+
+          {/* Interviews list */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            {filteredInterviews.length === 0 ? (
+            {filteredOwn.length === 0 ? (
               <div className="p-8 text-center text-gray-400">
                 <CalendarCheck size={28} className="mx-auto mb-2 opacity-30" />
-                <p>Aucun entretien à venir</p>
+                <p>{statusFilter === 'all' ? 'Aucun entretien enregistré' : 'Aucun entretien dans cette catégorie'}</p>
               </div>
             ) : (
               <table className="w-full text-sm">
@@ -399,27 +479,27 @@ export default function AmbassadeurDetailPage({ params }: { params: Promise<{ id
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Membre</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Type</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Chapitre</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date prévue</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Statut</th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filteredInterviews.map(iv => (
-                    <tr key={iv.id} className="hover:bg-gray-50 transition-colors">
+                  {filteredOwn.map(iv => (
+                    <tr key={iv.id} className={`hover:bg-gray-50 transition-colors ${iv.status === 'completed' ? 'opacity-75' : ''}`}>
                       <td className="px-4 py-3.5">
                         <p className="font-medium text-gray-900">{iv.member_name}</p>
                         <p className="text-xs text-gray-500 mt-0.5">{iv.company}</p>
                       </td>
-                      <td className="px-4 py-3.5 text-gray-700">{getInterviewLabel(iv.type as never)}</td>
+                      <td className="px-4 py-3.5 text-gray-700 text-xs">{getInterviewLabel(iv.type as never)}</td>
                       <td className="px-4 py-3.5 text-gray-500 text-xs">{iv.chapter_name || '—'}</td>
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-1.5">
-                          {iv.status === 'overdue'
-                            ? <AlertTriangle size={13} className="text-red-500" />
-                            : <Clock size={13} className="text-gray-400" />}
-                          <span className={iv.status === 'overdue' ? 'text-red-600 font-medium text-sm' : 'text-gray-700 text-sm'}>
-                            {formatDate(iv.scheduled_date)}
+                          {iv.status === 'overdue' && <AlertTriangle size={12} className="text-red-500 flex-shrink-0" />}
+                          {iv.status === 'scheduled' && <Clock size={12} className="text-blue-400 flex-shrink-0" />}
+                          {iv.status === 'completed' && <CheckCircle size={12} className="text-green-500 flex-shrink-0" />}
+                          <span className={`text-sm ${iv.status === 'overdue' ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
+                            {formatDate(iv.completed_date || iv.scheduled_date)}
                           </span>
                         </div>
                       </td>
@@ -429,8 +509,10 @@ export default function AmbassadeurDetailPage({ params }: { params: Promise<{ id
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
-                        <a href={`/entretiens/${iv.id}`} className="text-gray-400 hover:text-gray-700">
-                          <ChevronRight size={16} />
+                        <a href={`/entretiens/${iv.id}`}
+                          className="flex items-center gap-1 text-gray-400 hover:text-gray-700 text-xs">
+                          <FileText size={13} />
+                          {iv.status === 'completed' ? 'Voir' : 'Saisir'}
                         </a>
                       </td>
                     </tr>
@@ -480,8 +562,13 @@ function Info({ label, value }: { label: string; value: string }) {
   )
 }
 
-function StatBadge({ label, value, icon, color = 'gray' }: { label: string; value: number; icon: React.ReactNode; color?: string }) {
-  const colors: Record<string, string> = { gray: 'bg-gray-50 text-gray-600', blue: 'bg-blue-50 text-blue-700', purple: 'bg-purple-50 text-purple-700' }
+function StatCard({ label, value, icon, color = 'gray' }: { label: string; value: number; icon: React.ReactNode; color?: string }) {
+  const colors: Record<string, string> = {
+    gray: 'bg-gray-50 text-gray-600',
+    blue: 'bg-blue-50 text-blue-700',
+    purple: 'bg-purple-50 text-purple-700',
+    green: 'bg-green-50 text-green-700',
+  }
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
       <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${colors[color]}`}>{icon}</div>

@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     }
 
     const [user] = await sql`
-      SELECT id, name, email, password_hash, role, ambassador_id, active
+      SELECT id, name, email, password_hash, role, ambassador_id, amb_role, active
       FROM users
       WHERE email = ${email.toLowerCase().trim()}
     ` as Record<string, unknown>[]
@@ -30,10 +30,12 @@ export async function POST(req: NextRequest) {
     `
     const chapterIds = chapterRows.map(r => Number(r.chapter_id))
 
-    let ambassadorRole: string | undefined
-    if (user.ambassador_id) {
+    // amb_role is stored directly on users (new schema)
+    // Fallback: read from ambassadors table for old accounts without amb_role
+    let ambRole = (user.amb_role as string) ?? undefined
+    if (!ambRole && user.ambassador_id) {
       const [amb] = await sql`SELECT role FROM ambassadors WHERE id = ${user.ambassador_id as number}`
-      ambassadorRole = (amb?.role as string) ?? undefined
+      ambRole = (amb?.role as string) ?? undefined
     }
 
     const payload: SessionPayload = {
@@ -43,7 +45,8 @@ export async function POST(req: NextRequest) {
       role: user.role as SessionPayload['role'],
       chapterIds,
       ambassadorId: user.ambassador_id ? Number(user.ambassador_id) : undefined,
-      ambassadorRole,
+      ambassadorRole: ambRole,
+      ambRole,
     }
 
     const token = await signToken(payload)

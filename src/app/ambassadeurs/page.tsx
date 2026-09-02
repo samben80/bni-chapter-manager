@@ -27,12 +27,14 @@ export default function AmbassadeursPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [selectedChapterIds, setSelectedChapterIds] = useState<Set<number>>(new Set())
   const [saving, setSaving] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const load = () => fetch('/api/ambassadors').then(r => r.json()).then(setAmbassadors)
 
   useEffect(() => {
     load()
     fetch('/api/chapters').then(r => r.json()).then(setChapters)
+    fetch('/api/auth/me').then(r => r.json()).then((s: { role: string }) => setIsAdmin(s.role === 'admin'))
   }, [])
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
@@ -66,11 +68,13 @@ export default function AmbassadeursPage() {
             {ambassadors.length} ambassadeur{ambassadors.length > 1 ? 's' : ''} actif{ambassadors.length > 1 ? 's' : ''}
           </p>
         </div>
-        <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium"
-          style={{ backgroundColor: '#C0392B' }}>
-          <Plus size={16} /> Nouvel ambassadeur
-        </button>
+        {isAdmin && (
+          <button onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium"
+            style={{ backgroundColor: '#C0392B' }}>
+            <Plus size={16} /> Nouvel ambassadeur
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

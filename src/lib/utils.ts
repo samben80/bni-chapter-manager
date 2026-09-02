@@ -19,6 +19,7 @@ export function getScheduledInterviewDate(introDate: string, type: InterviewType
     '3months': 3,
     '7months': 7,
     '10months': 10,
+    free: 0,
   }
   return addMonths(intro, offsets[type])
 }
@@ -45,6 +46,7 @@ export function getInterviewLabel(type: InterviewType): string {
     '3months': 'Entretien 3 mois',
     '7months': 'RDV Accompagnement 7 mois',
     '10months': 'RDV Renouvellement 10 mois',
+    free: 'Entretien libre',
   }
   return labels[type]
 }

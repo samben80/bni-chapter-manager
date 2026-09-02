@@ -29,10 +29,6 @@ export default function Form10Months({ data, onChange }: Props) {
       </Section>
 
       <Section title="BILAN BNI DE L'ANNÉE ÉCOULÉE">
-        <div className="flex gap-4 mb-4">
-          <Field label="Période du" value={data.period_from as string} onChange={v => set('period_from', v)} type="date" />
-          <Field label="au" value={data.period_to as string} onChange={v => set('period_to', v)} type="date" />
-        </div>
         <MetricGrid>
           <GridCol title="Ce que j'ai DONNÉ au groupe" color="red">
             <NumberField label="Recommandations données" value={data.reco_given as number} onChange={v => set('reco_given', v)} />

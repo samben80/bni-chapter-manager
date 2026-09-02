@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
-import { getSession, unauthorized, resolveAmbassadorRole, ONBOARDING_INTERVIEW_TYPES } from '@/lib/auth'
+import { getSession, unauthorized, resolveAmbassadorRole, ONBOARDING_INTERVIEW_TYPES, forbidden } from '@/lib/auth'
+
+async function migrateInterviewTypes() {
+  try {
+    await sql`ALTER TABLE interviews DROP CONSTRAINT IF EXISTS interviews_type_check`
+    await sql`ALTER TABLE interviews ADD CONSTRAINT interviews_type_check
+      CHECK (type IN ('preboarding','3months','7months','10months','free'))`
+  } catch { /* already applied */ }
+}
 
 export async function GET(req: NextRequest) {
   const session = await getSession(req)
@@ -50,6 +58,34 @@ export async function GET(req: NextRequest) {
 
   const interviews = await sql.query(query, vals)
   return NextResponse.json(interviews.rows ?? interviews)
+}
+
+export async function POST(req: NextRequest) {
+  const session = await getSession(req)
+  if (!session) return unauthorized()
+
+  if (session.role !== 'admin') {
+    if (session.role !== 'amb') return forbidden()
+    const ambRole = await resolveAmbassadorRole(session)
+    // Block only if explicitly onboarding-only; allow if role is unknown (DB fallback covered)
+    if (ambRole === 'onboarding') return forbidden()
+  }
+
+  const { member_id } = await req.json()
+  if (!member_id) return NextResponse.json({ error: 'member_id requis' }, { status: 400 })
+
+  await migrateInterviewTypes()
+
+  const ambassadorId = session.ambassadorId ?? null
+  const today = new Date().toISOString().slice(0, 10)
+
+  const [row] = await sql`
+    INSERT INTO interviews (member_id, type, scheduled_date, status, ambassador_id)
+    VALUES (${member_id}, 'free', ${today}, 'scheduled', ${ambassadorId})
+    RETURNING id
+  ` as Record<string, unknown>[]
+
+  return NextResponse.json({ id: row.id }, { status: 201 })
 }
 
 export async function DELETE(req: NextRequest) {
