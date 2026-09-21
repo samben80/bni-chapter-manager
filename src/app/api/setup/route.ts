@@ -150,6 +150,10 @@ export async function GET() {
     ON CONFLICT (name) DO NOTHING
   `
 
+  // ── Migrations members : champs badges & chevalets ───────────────────────
+  await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS sphere    TEXT`
+  await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS logo_path TEXT`
+
   // ── Migrations users table ───────────────────────────────────────────────
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT`
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name  TEXT`

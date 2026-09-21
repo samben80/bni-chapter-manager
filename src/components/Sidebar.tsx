@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
-  LayoutDashboard, Users, CalendarCheck, LogOut, ShieldCheck, BarChart2, UserCheck
+  LayoutDashboard, Users, CalendarCheck, LogOut, ShieldCheck, BarChart2, UserCheck, IdCard
 } from 'lucide-react'
 import type { SessionPayload, UserRole } from '@/lib/auth'
 
@@ -21,6 +21,7 @@ const NAV_ALL = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/membres', label: 'Membres', icon: Users },
   { href: '/entretiens', label: 'Entretiens', icon: CalendarCheck },
+  { href: '/impressions', label: 'Badges & Chevalets', icon: IdCard },
 ]
 
 

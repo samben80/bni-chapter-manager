@@ -20,8 +20,12 @@ export interface Member {
   bni_activity?: string
   email?: string
   phone?: string
+  city?: string
   intro_date: string
   status: MemberStatus
+  // Badges & chevalets
+  sphere?: string       // sphère BNI (libellé du bandeau)
+  logo_path?: string    // logo société (data URL ou chemin) pour le chevalet
   created_at: string
   // computed
   months_since_intro?: number

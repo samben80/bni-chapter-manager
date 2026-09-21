@@ -86,10 +86,30 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!session) return unauthorized()
   if (session.role === 'amb') return Response.json({ error: 'Accès refusé' }, { status: 403 })
   const { id } = await params
-  const { status } = await req.json()
-  const allowed = ['Actif', 'Arrêté', 'Annulé', 'Renouvellement en cours', 'Postulation en cours']
-  if (!allowed.includes(status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
-  await sql`UPDATE members SET status = ${status} WHERE id = ${id}`
+  const body = await req.json()
+
+  // Mise à jour partielle : statut (validé) + champs badges/chevalets.
+  if (body.status !== undefined) {
+    const allowed = ['Actif', 'Arrêté', 'Annulé', 'Renouvellement en cours', 'Postulation en cours']
+    if (!allowed.includes(body.status)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+    }
+  }
+
+  const EDITABLE = ['status', 'sphere', 'company', 'activity', 'bni_activity', 'city', 'logo_path']
+  const sets: string[] = []
+  const vals: unknown[] = []
+  for (const col of EDITABLE) {
+    if (body[col] !== undefined) {
+      vals.push(body[col])
+      sets.push(`${col} = $${vals.length}`)
+    }
+  }
+  if (sets.length === 0) {
+    return NextResponse.json({ error: 'Aucun champ à mettre à jour' }, { status: 400 })
+  }
+  vals.push(id)
+  await sql.query(`UPDATE members SET ${sets.join(', ')} WHERE id = $${vals.length}`, vals)
   return NextResponse.json({ success: true })
 }
 
