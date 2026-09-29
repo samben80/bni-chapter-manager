@@ -11,6 +11,7 @@ import { SPHERE_NAMES, sphereColor } from '@/lib/spheres'
 
 interface Row extends Member {
   full_name: string
+  chapter_name?: string
 }
 
 // ── Utilitaires ───────────────────────────────────────────────────────────────
@@ -49,11 +50,16 @@ export default function ImpressionsPage() {
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [chapter, setChapter] = useState<string>('')          // filtre chapitre
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [savingIds, setSavingIds] = useState<Set<number>>(new Set())
   const [busy, setBusy] = useState<'badges' | 'chevalets' | null>(null)
   const [importMsg, setImportMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Affectation en masse
+  const [bulkSphere, setBulkSphere] = useState<string>('')
+  const [bulkCity, setBulkCity] = useState<string>('')
+  const [applyingBulk, setApplyingBulk] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
   const logoForId = useRef<number | null>(null)
@@ -74,13 +80,19 @@ export default function ImpressionsPage() {
     }
   }
 
+  const chapters = useMemo(
+    () => Array.from(new Set(rows.map(r => r.chapter_name).filter(Boolean) as string[]))
+      .sort((a, b) => a.localeCompare(b, 'fr')),
+    [rows],
+  )
+
   const filtered = useMemo(() => {
     const q = norm(search)
-    const list = q
-      ? rows.filter(r => norm(`${r.full_name} ${r.company ?? ''} ${r.activity ?? ''} ${r.sphere ?? ''}`).includes(q))
-      : rows
+    let list = rows
+    if (chapter) list = list.filter(r => (r.chapter_name ?? '') === chapter)
+    if (q) list = list.filter(r => norm(`${r.full_name} ${r.company ?? ''} ${r.activity ?? ''} ${r.sphere ?? ''}`).includes(q))
     return [...list].sort((a, b) => a.full_name.localeCompare(b.full_name, 'fr'))
-  }, [rows, search])
+  }, [rows, search, chapter])
 
   const selectedIdsInOrder = useMemo(
     () => filtered.filter(r => selected.has(r.id)).map(r => r.id),
@@ -123,6 +135,39 @@ export default function ImpressionsPage() {
       setError('Erreur réseau lors de l’enregistrement.')
     } finally {
       setSavingIds(prev => { const n = new Set(prev); n.delete(id); return n })
+    }
+  }
+
+  // ── Affectation en masse (sphère / ville) ────────────────────────────────────
+  async function applyBulk() {
+    const ids = selectedIdsInOrder
+    const patch: Partial<Member> = {}
+    if (bulkSphere) patch.sphere = bulkSphere === '__none' ? '' : bulkSphere
+    if (bulkCity.trim()) patch.city = bulkCity.trim()
+    if (ids.length === 0 || Object.keys(patch).length === 0) return
+    setApplyingBulk(true); setError(null)
+    try {
+      const res = await fetch('/api/members', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, patch }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setError(j.error || 'Affectation en masse refusée.')
+        return
+      }
+      setRows(prev => prev.map(r => (selected.has(r.id) ? { ...r, ...patch } : r)))
+      const n = ids.length
+      const bits: string[] = []
+      if (patch.sphere !== undefined) bits.push(`sphère = « ${patch.sphere || 'aucune'} »`)
+      if (patch.city !== undefined) bits.push(`ville = « ${patch.city} »`)
+      setImportMsg(`${n} membre(s) mis à jour : ${bits.join(', ')}.`)
+      setBulkSphere(''); setBulkCity('')
+    } catch {
+      setError('Erreur réseau pendant l’affectation en masse.')
+    } finally {
+      setApplyingBulk(false)
     }
   }
 
@@ -268,6 +313,22 @@ export default function ImpressionsPage() {
           />
         </div>
 
+        {chapters.length > 1 && (
+          <select
+            value={chapter}
+            onChange={e => setChapter(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-md text-sm bg-white focus:outline-none focus:border-red-300 max-w-[220px]"
+            title="Filtrer par chapitre"
+          >
+            <option value="">Tous les chapitres ({rows.length})</option>
+            {chapters.map(c => (
+              <option key={c} value={c}>
+                {c} ({rows.filter(r => r.chapter_name === c).length})
+              </option>
+            ))}
+          </select>
+        )}
+
         <button
           onClick={() => fileInputRef.current?.click()}
           className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-md text-sm text-gray-700 hover:bg-gray-50"
@@ -297,6 +358,44 @@ export default function ImpressionsPage() {
           Chevalets (PDF){nSel > 0 ? ` · ${nSel} p.` : ''}
         </button>
       </div>
+
+      {/* Affectation en masse — visible quand des membres sont cochés */}
+      {nSel > 0 && (
+        <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-md bg-amber-50 border border-amber-200">
+          <span className="text-sm font-medium text-amber-900">
+            Affecter aux {nSel} sélectionné(s) :
+          </span>
+          <select
+            value={bulkSphere}
+            onChange={e => setBulkSphere(e.target.value)}
+            className="px-3 py-2 border border-amber-300 rounded-md text-sm bg-white focus:outline-none focus:border-amber-400 max-w-[280px]"
+          >
+            <option value="">— Sphère (inchangée) —</option>
+            <option value="__none">— aucune (vider) —</option>
+            {SPHERE_NAMES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <input
+            value={bulkCity}
+            onChange={e => setBulkCity(e.target.value)}
+            placeholder="Ville (facultatif)"
+            className="px-3 py-2 border border-amber-300 rounded-md text-sm bg-white focus:outline-none focus:border-amber-400 w-40"
+          />
+          <button
+            onClick={applyBulk}
+            disabled={applyingBulk || (!bulkSphere && !bulkCity.trim())}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {applyingBulk ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+            Appliquer
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="text-sm text-amber-800/70 hover:text-amber-900"
+          >
+            Tout décocher
+          </button>
+        </div>
+      )}
 
       {/* Messages */}
       {importMsg && (

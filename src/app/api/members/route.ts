@@ -60,6 +60,35 @@ export async function DELETE(req: NextRequest) {
   return NextResponse.json({ deleted: ids.length })
 }
 
+export async function PATCH(req: NextRequest) {
+  const session = await getSession(req)
+  if (!session) return unauthorized()
+  if (session.role === 'amb') return Response.json({ error: 'Accès refusé' }, { status: 403 })
+
+  const body = await req.json().catch(() => ({}))
+  const ids: number[] = Array.isArray(body?.ids) ? body.ids.map(Number).filter(Boolean) : []
+  const patch = (body?.patch ?? {}) as Record<string, unknown>
+  if (ids.length === 0) return NextResponse.json({ error: 'Aucun membre sélectionné' }, { status: 400 })
+
+  const EDITABLE = ['sphere', 'city', 'company', 'activity', 'bni_activity']
+  const sets: string[] = []
+  const vals: unknown[] = []
+  for (const col of EDITABLE) {
+    if (patch[col] !== undefined) { vals.push(patch[col]); sets.push(`${col} = $${vals.length}`) }
+  }
+  if (sets.length === 0) return NextResponse.json({ error: 'Aucun champ à mettre à jour' }, { status: 400 })
+
+  vals.push(ids)
+  let where = `id = ANY($${vals.length})`
+  if (session.role !== 'admin') {
+    vals.push(session.chapterIds)
+    where += ` AND chapter_id = ANY($${vals.length})`
+  }
+  const result = await sql.query(`UPDATE members SET ${sets.join(', ')} WHERE ${where}`, vals)
+  const count = (result as { rowCount?: number }).rowCount ?? ids.length
+  return NextResponse.json({ success: true, updated: count })
+}
+
 export async function POST(req: NextRequest) {
   const session = await getSession(req)
   if (!session) return unauthorized()
